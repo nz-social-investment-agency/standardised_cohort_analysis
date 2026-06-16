@@ -1,0 +1,140 @@
+---
+title: "Matching overview"
+output: html_document
+date: "`r Sys.Date()`"
+params:
+  df: NULL
+  model_matched: NULL
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+stopifnot(!is.null(params$df))
+stopifnot(!is.null(params$model_matched))
+```
+
+```{r calculations, echo = FALSE}
+
+model_summary = summary(params$model_matched, un = FALSE)
+balance_summary = as.data.frame(model_summary$sum.matched)
+
+```
+
+## Predictive model summary
+Receiver Operating Characteristic (ROC) from the logit model
+
+```{r logit, echo = FALSE}
+roc = pROC::roc(params$df$to_match,params$df$predicted_prob)
+cat("Area under the curve:", round(roc$auc, 4), "\n")
+```
+
+We expect scores > 0.9 in most cases.
+
+## Matching model summary
+
+### Model summary
+
+```{r matching_summary, echo = FALSE}
+print(model_summary$nn)
+```
+
+We expect:
+
+1. most treated records to be matched
+2. about twice as many control records to be matched
+3. the remaining control records to be unmatched
+4. minimal records to be discarded
+
+### Observational balance
+
+```{r matching_balance, echo = FALSE}
+params$df |>
+  dplyr::group_by(to_match, treat_control_other) |>
+  dplyr::summarise(num = dplyr::n(), dist_uid = dplyr::n_distinct(snz_uid)) |>
+  print()
+
+```
+
+We expect:
+
+1. the `num` column to be consistent with the Model summary
+2. the `dist_uid` column to be of a similar magnitude to the `num` column for control.
+
+If the control row shows `dist_uid` is much smaller that `num`, then people used
+for matching have been used on many of their possible reference dates. This may
+lower the robustness of the method.
+
+## Propensity scores before and after
+
+Distribution of predicted probabilities prior to matching
+
+```{r prior_density, echo = FALSE}
+plot_data = dplyr::mutate(params$df, treat_control_other = ifelse(treat_control_other == "other", "control", treat_control_other))
+ggplot2::ggplot(data = plot_data)+
+  ggplot2::geom_density(ggplot2::aes(x = predicted_prob, colour = treat_control_other)) +
+  ggplot2::scale_y_sqrt()
+```
+
+Distribution of predicted probabilities after matching
+
+```{r after_density, echo = FALSE}
+plot_data = dplyr::filter(params$df, treat_control_other != "other")
+ggplot2::ggplot(data = plot_data) +
+  ggplot2::geom_density(ggplot2::aes(x = predicted_prob, colour = treat_control_other)) +
+  ggplot2::scale_y_sqrt()
+```
+
+We expect the control distribution before matching to show a heavy skew towards
+zero, and for the two distributions after matching to appear much more similar.
+
+## Love plot
+
+This shows the quality of matching. Scores between 0 and 0.1 are considered well
+matched. Scores between 0.1 and 0.2 are a poor match. Scores greater than 0.2
+are not considered matched.
+
+```{r love_plot, echo = FALSE, fig.height = 24}
+plot(summary(model_matched), var.order = "matched")
+```
+
+As part of having a standardised method, and a large number of measures we have
+to accept that not all measures will be well matched. But still important to
+check for quality of matching. Take special note of measures that are key to
+the description of the population.
+
+## Data behind the love plot
+
+Unmatched attributes
+
+```{r love_data_1, echo = FALSE}
+balance_summary |>
+  dplyr::filter(abs(`Std. Mean Diff.`) > 0.2) |>
+  dplyr::arrange(-abs(`Std. Mean Diff.`)) |>
+  dplyr::select('Means Treated', 'Means Control', 'Std. Mean Diff.', 'Var. Ratio', 'Std. Pair Dist.') |>
+  print()
+```
+
+Poor match attributes
+
+```{r love_data_2, echo = FALSE}
+balance_summary |>
+  dplyr::filter(
+    abs(`Std. Mean Diff.`) <= 0.2,
+    abs(`Std. Mean Diff.`) > 0.1
+  ) |>
+  dplyr::arrange(-abs(`Std. Mean Diff.`)) |>
+  dplyr::select('Means Treated', 'Means Control', 'Std. Mean Diff.', 'Var. Ratio', 'Std. Pair Dist.') |>
+  print()
+```
+
+Good match attributes
+
+```{r love_data_3, echo = FALSE}
+balance_summary |>
+  dplyr::filter(abs(`Std. Mean Diff.`) <= 0.1) |>
+  dplyr::arrange(-abs(`Std. Mean Diff.`)) |>
+  dplyr::select('Means Treated', 'Means Control', 'Std. Mean Diff.', 'Var. Ratio', 'Std. Pair Dist.') |>
+  print()
+```
+

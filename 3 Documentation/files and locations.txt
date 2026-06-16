@@ -1,0 +1,124 @@
+//cohorts pipeline/1 Definitions/address_and_geographies.sql
+//cohorts pipeline/1 Definitions/alternative_education.sql
+//cohorts pipeline/1 Definitions/any_corrections_spells.sql
+//cohorts pipeline/1 Definitions/attendance_service_support.sql
+//cohorts pipeline/1 Definitions/avoidable hospitalisations.sql
+//cohorts pipeline/1 Definitions/B4SC_SDQ_PEDS.sql
+//cohorts pipeline/1 Definitions/chronic_diabetes.sql
+//cohorts pipeline/1 Definitions/CM_EET_FLEXIBLE.sql
+//cohorts pipeline/1 Definitions/cohort_cep.sql
+//cohorts pipeline/1 Definitions/cohort_CIP_spells.sql
+//cohorts pipeline/1 Definitions/cohort_ssee.sql
+//cohorts pipeline/1 Definitions/Corrections major management periods.sql
+//cohorts pipeline/1 Definitions/diagnosis_codes.csv
+//cohorts pipeline/1 Definitions/ECE_attendance.sql
+//cohorts pipeline/1 Definitions/emergency_department_visits.sql
+//cohorts pipeline/1 Definitions/emergency_housing_spells.sql
+//cohorts pipeline/1 Definitions/employment_spells.sql
+//cohorts pipeline/1 Definitions/FVSV_code_module_FIX.sql
+//cohorts pipeline/1 Definitions/Generalised_ACE scores_202506.sql
+//cohorts pipeline/1 Definitions/hospitalisations.sql
+//cohorts pipeline/1 Definitions/learning_supports.sql
+//cohorts pipeline/1 Definitions/level_1_and_2_ethnicity.sql
+//cohorts pipeline/1 Definitions/max_date ACC claims.sql
+//cohorts pipeline/1 Definitions/max_date B4SC.sql
+//cohorts pipeline/1 Definitions/max_date CM family_sexual_violence.sql
+//cohorts pipeline/1 Definitions/max_date CM highest_nqflevel_spells.sql
+//cohorts pipeline/1 Definitions/max_date CM income_t2_total_income.sql
+//cohorts pipeline/1 Definitions/max_date CM moe_sch_att_year.sql
+//cohorts pipeline/1 Definitions/max_date CM msd_ise_main_benefit.sql
+//cohorts pipeline/1 Definitions/max_date CM nzta_driver_licences_status.sql
+//cohorts pipeline/1 Definitions/max_date COR management.sql
+//cohorts pipeline/1 Definitions/max_date CYF fgc.sql
+//cohorts pipeline/1 Definitions/max_date CYF investigations.sql
+//cohorts pipeline/1 Definitions/max_date CYF placements.sql
+//cohorts pipeline/1 Definitions/max_date ECE attendance.sql
+//cohorts pipeline/1 Definitions/max_date HNZ tenancy_hhld_snapshot.sql
+//cohorts pipeline/1 Definitions/max_date IRD ems.sql
+//cohorts pipeline/1 Definitions/max_date MOE enrolment.sql
+//cohorts pipeline/1 Definitions/max_date MOE student_enrol.sql
+//cohorts pipeline/1 Definitions/max_date MOE student_interventions.sql
+//cohorts pipeline/1 Definitions/max_date MOE tec_it_learner.sql
+//cohorts pipeline/1 Definitions/max_date MOH nes_enrolment.sql
+//cohorts pipeline/1 Definitions/max_date MOH nnpac.sql
+//cohorts pipeline/1 Definitions/max_date MOH pharmaceutical.sql
+//cohorts pipeline/1 Definitions/max_date MOH primhd.sql
+//cohorts pipeline/1 Definitions/max_date MOH private_hospital_event.sql
+//cohorts pipeline/1 Definitions/max_date MOH public_hospital_event.sql
+//cohorts pipeline/1 Definitions/max_date MOJ charges.sql
+//cohorts pipeline/1 Definitions/max_date MSD T3_expenditure.sql
+//cohorts pipeline/1 Definitions/max_date NEET.sql
+//cohorts pipeline/1 Definitions/max_date POL nia_links.sql
+//cohorts pipeline/1 Definitions/max_date POL pre_count_offenders.sql
+//cohorts pipeline/1 Definitions/max_date POL pre_count_victims.sql
+//cohorts pipeline/1 Definitions/max_date SNZ address_notification.sql
+//cohorts pipeline/1 Definitions/mha_alcohol_abuse_dependence.sql
+//cohorts pipeline/1 Definitions/mha_bipolar.sql
+//cohorts pipeline/1 Definitions/MHA_combined.sql
+//cohorts pipeline/1 Definitions/mha_drug_abuse_dependance.sql
+//cohorts pipeline/1 Definitions/mha_dysthymia.sql
+//cohorts pipeline/1 Definitions/mha_generalised_anxiety_disorder.sql
+//cohorts pipeline/1 Definitions/mha_major_depressive_disorder.sql
+//cohorts pipeline/1 Definitions/mha_schizophrenia.sql
+//cohorts pipeline/1 Definitions/NEET.sql
+//cohorts pipeline/1 Definitions/non_structural_school_moves.sql
+//cohorts pipeline/1 Definitions/OT_interactions.sql
+//cohorts pipeline/1 Definitions/parent_benefit.sql
+//cohorts pipeline/1 Definitions/parental_seperation.sql
+//cohorts pipeline/1 Definitions/parents_with_child_birthdates.sql
+//cohorts pipeline/1 Definitions/pharmaceutical_dispensing.sql
+//cohorts pipeline/1 Definitions/PHO_enrolment.sql
+//cohorts pipeline/1 Definitions/police_categorised_interactions.sql
+//cohorts pipeline/1 Definitions/school_enrolled.sql
+//cohorts pipeline/1 Definitions/social_housing_by_tenancy.sql
+//cohorts pipeline/1 Definitions/SSEE_w_flags.sql
+//cohorts pipeline/1 Definitions/tertiary_enrolment.sql
+//cohorts pipeline/1 Definitions/transient_students.sql
+//cohorts pipeline/1 Definitions/YORST definition.sql
+//cohorts pipeline/2 Analysis/_Definitions/Execution/control_file - pipeline.xlsx
+//cohorts pipeline/2 Analysis/_Template/_Template_client.sql
+//cohorts pipeline/2 Analysis/_Template/_Template_possible_client_matches.sql
+//cohorts pipeline/2 Analysis/_Template/_Template_possible_target_matches.sql
+//cohorts pipeline/2 Analysis/_Template/_Template_target.sql
+//cohorts pipeline/2 Analysis/_Test/_Test_client.sql
+//cohorts pipeline/2 Analysis/_Test/_Test_possible_client_matches.sql
+//cohorts pipeline/2 Analysis/_Test/_Test_possible_target_matches.sql
+//cohorts pipeline/2 Analysis/_Test/_Test_target.sql
+//cohorts pipeline/3 Documentation/Cohort analysis pipeline – user guide.docx
+//cohorts pipeline/3 Documentation/output submission metadata.xlsx
+//cohorts pipeline/4 For submission/_output submission metadata.xlsx
+//cohorts pipeline/5 Resources/auto_checker.R
+//cohorts pipeline/5 Resources/expand_draft.R
+//cohorts pipeline/5 Resources/install IDIr.R
+//cohorts pipeline/6 Automation/Automation scripts/compression_current_state_master_table.sql
+//cohorts pipeline/6 Automation/Automation scripts/compression_matching_comparison_master_table.sql
+//cohorts pipeline/6 Automation/Automation scripts/compression_matching_forecast_master_table.sql
+//cohorts pipeline/6 Automation/Automation scripts/compression_time_series_master_table.sql
+//cohorts pipeline/6 Automation/Automation scripts/initialise_current_state_master_table.sql
+//cohorts pipeline/6 Automation/Automation scripts/initialise_matching_comparison_master_table.sql
+//cohorts pipeline/6 Automation/Automation scripts/initialise_matching_forecast_master_table.sql
+//cohorts pipeline/6 Automation/Automation scripts/initialise_time_series_master_table.sql
+//cohorts pipeline/6 Automation/Automation scripts/matching_methodology.R
+//cohorts pipeline/6 Automation/Automation scripts/overview_matching.Rmd
+//cohorts pipeline/6 Automation/Automation scripts/prepare_submission.R
+//cohorts pipeline/6 Automation/Automation scripts/settings_current_state.R
+//cohorts pipeline/6 Automation/Automation scripts/settings_matching_comparison.R
+//cohorts pipeline/6 Automation/Automation scripts/settings_matching_forecast.R
+//cohorts pipeline/6 Automation/Automation scripts/settings_time_series.R
+//cohorts pipeline/6 Automation/Automation scripts/tidy_current_state_master_table.sql
+//cohorts pipeline/6 Automation/Automation scripts/tidy_time_series_master_table.sql
+//cohorts pipeline/6 Automation/Automation scripts/tool_assembly.R
+//cohorts pipeline/6 Automation/Automation scripts/tool_confidentialise.R
+//cohorts pipeline/6 Automation/Automation scripts/tool_pipeline.R
+//cohorts pipeline/6 Automation/Automation scripts/tool_summary.R
+//cohorts pipeline/6 Automation/Automation scripts/validate_assembly_tool.R
+//cohorts pipeline/6 Automation/Automation scripts/validate_summary_tool.R
+//cohorts pipeline/6 Automation/Control files/control_file - current_state.xlsx
+//cohorts pipeline/6 Automation/Control files/control_file - matching_comparison.xlsx
+//cohorts pipeline/6 Automation/Control files/control_file - matching_forecast.xlsx
+//cohorts pipeline/6 Automation/Control files/control_file - pipeline.xlsx
+//cohorts pipeline/6 Automation/Control files/control_file - time_series.xlsx
+//cohorts pipeline/6 Automation/Mappings/mapping - dimension1.csv
+//cohorts pipeline/6 Automation/Mappings/mapping - dimension2.csv
+//cohorts pipeline/Cohorts pipeline.Rproj
+//cohorts pipeline/cohorts_pipeline_launcher.R

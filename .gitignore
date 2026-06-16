@@ -1,0 +1,86 @@
+# Files to be ignored by GIT
+
+# Files not to ignore
+!*control*.xlsx
+
+# Specific files to ignore
+*run_pipeline_log.txt
+*Archive*
+*in_progress_settings.RDS
+00 Exploration/*
+
+# Files to be ignored for R
+*.RHistory
+.Rapp.history
+*.Rproj.user/
+*.Rproj.user
+*.Rproj
+*.RData
+*.rda
+*.rds
+*.utf8.md
+*.knit.md
+
+#Files to be ignored for SAS
+*.lst
+*.sas7bdat
+*.sas7baud
+*.sas7bvew
+*.sas7bndx
+*.sas7bcat
+*.sas7bacs
+*.sas7bfdb
+*.sas7bmdb
+*.sas7bdmd
+*.sas7bitm
+*.sas7butl
+*.sas7bput
+*.sas7bbak
+
+#Files to be ignored for Stata
+*.dta
+*.gph
+*.log
+*.smcl
+*.stpr
+*.stsem
+
+#Files to be ignored for Microsoft
+*.xlx
+*.xlsx
+*.doc
+*.docx
+*.pptx
+*.one
+*.pub
+
+#Files to be ignored for SQL (not sure if we need these)
+*.mdf
+*.ldf
+*.ndf
+
+#Graphic Files to be ignored
+*.bmp
+*.emf
+*.eps
+*.gif
+*.jpg
+*.jpeg
+*.pdf
+*.png
+*.ps
+*.tif
+*.wmf
+
+#General files types to be ignored
+*.csv
+*.zip
+*.html
+*.htm
+*.mht
+*.mhtml
+*.tab
+*.dat
+*.rtf
+
+.Rproj.user
