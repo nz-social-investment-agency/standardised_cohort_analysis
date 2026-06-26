@@ -5,7 +5,7 @@ Author: Simon Anastasiadis
 Inputs & Dependencies:
 	[IDI_Clean].[pol_clean].[post_count_offenders]
 Output:
-	[IDI_Sandpit].[DL-MAA2023-46].[defn_yorst_score_at_police_proceeding_202506]	
+	[$(PROJECT_DB)].[$(PROJECT_SCHEMA)].[defn_yorst_score_at_police_proceeding_$(REFRESH)]	
 
 Description:
 YORST is the Youth Offending Risk Screening Tool
@@ -60,34 +60,40 @@ Notes:
 		most of the medium risk and all of the high risk people.	
 - A comparison of NIA Links against Police Offenders suggests that in most cases there is minimal gap (most often 0 days)
 	between the proceeding date and any NIA Link record from the same time period.
-- In 202506 refresh, data is available up to March 2025
+- In 202603 refresh, data is available up to November 2025
 	General trend is downwards from around 600 proceedings a day in 2009 to around 300 a day in 2024 early 2025 .
 
 Parameters & Present values:
-  Current refresh = 202506
-  Project schema = [DL-MAA2023-46]
+  Current refresh = $(REFRESH)
+  Project schema = [$(PROJECT_SCHEMA)]
  
 Issues:
  
 History (reverse order):
+2026-04-01 CF updated to 202603 resfresh
+2026-01-12 CF updated to 202510 refresh
 2025-07-15 CR updated to 202506 refresh 
 2025-06-10 Dan Young QA
 2025-06-06 SA version 1
 **************************************************************************************************/
+
+ --:SETVAR PROJECT_DB "SIA_Sandpit"
+ --:SETVAR PROJECT_SCHEMA "DL-MAA2026-04"
+ --:SETVAR REFRESH "202603"
 
 --------------------------------------------------------------------------------
 -- Staging view
 USE [IDI_UserCode]
 GO
 
-DROP VIEW IF EXISTS [DL-MAA2023-46].[tmp_police_offences_earliest_proceeding_per_occurrence]
+DROP VIEW IF EXISTS [$(PROJECT_SCHEMA)].[tmp_police_offences_earliest_proceeding_per_occurrence]
 GO
 
-CREATE VIEW [DL-MAA2023-46].[tmp_police_offences_earliest_proceeding_per_occurrence] AS
+CREATE VIEW [$(PROJECT_SCHEMA)].[tmp_police_offences_earliest_proceeding_per_occurrence] AS
 SELECT [snz_uid]
     ,[snz_pol_occurrence_uid]
     ,MIN([pol_poo_proceeding_date]) AS [pol_poo_proceeding_date]
-FROM [IDI_Clean_202506].[pol_clean].[post_count_offenders]
+FROM [IDI_Clean_$(REFRESH)].[pol_clean].[post_count_offenders]
 WHERE [snz_person_ind] = 1 -- must be a person
 AND [pol_poo_occurrence_inv_ind] = 1 -- investigation completed (1 = yes, 0 = no) value is always 1
 AND [pol_poo_offence_inv_ind] = 1 -- offence recorded (1 = yes, 0 = no) metadata states values of zero are incomplete and should be treated with caution
@@ -105,8 +111,8 @@ SELECT a.snz_uid
     ,a.[pol_poo_proceeding_date]
 	,COUNT(*) - 1 AS prior_offences
 INTO #count_prior_offences
-FROM [IDI_UserCode].[DL-MAA2023-46].[tmp_police_offences_earliest_proceeding_per_occurrence] AS a
-INNER JOIN [IDI_UserCode].[DL-MAA2023-46].[tmp_police_offences_earliest_proceeding_per_occurrence] AS b
+FROM [IDI_UserCode].[$(PROJECT_SCHEMA)].[tmp_police_offences_earliest_proceeding_per_occurrence] AS a
+INNER JOIN [IDI_UserCode].[$(PROJECT_SCHEMA)].[tmp_police_offences_earliest_proceeding_per_occurrence] AS b
 ON a.snz_uid = b.snz_uid -- same person
 AND b.[pol_poo_proceeding_date] <= a.[pol_poo_proceeding_date] -- past offences
 GROUP BY a.snz_uid
@@ -124,7 +130,7 @@ SELECT snz_uid
 	,[snz_pol_occurrence_uid]
     ,[pol_poo_proceeding_date]
 	,LAG([pol_poo_proceeding_date]) OVER (PARTITION BY snz_uid ORDER BY [pol_poo_proceeding_date], [snz_pol_occurrence_uid]) AS last_proceeding_date
-FROM [IDI_UserCode].[DL-MAA2023-46].[tmp_police_offences_earliest_proceeding_per_occurrence]
+FROM [IDI_UserCode].[$(PROJECT_SCHEMA)].[tmp_police_offences_earliest_proceeding_per_occurrence]
 
 )
 SELECT *
@@ -142,8 +148,8 @@ SELECT a.snz_uid
 	,MIN([pol_poo_proceeding_date]) AS earliest_offence
 	,FLOOR(DATEDIFF(MONTH, b.snz_birth_date_proxy, MIN([pol_poo_proceeding_date])) / 12.0) AS age_at_first_offence
 INTO #age_first_offence
-FROM [IDI_UserCode].[DL-MAA2023-46].[tmp_police_offences_earliest_proceeding_per_occurrence] AS a
-INNER JOIN [IDI_Clean_202506].[data].[personal_detail] AS b
+FROM [IDI_UserCode].[$(PROJECT_SCHEMA)].[tmp_police_offences_earliest_proceeding_per_occurrence] AS a
+INNER JOIN [IDI_Clean_$(REFRESH)].[data].[personal_detail] AS b
 ON a.snz_uid = b.snz_uid
 GROUP BY a.snz_uid, b.snz_birth_date_proxy
 GO
@@ -159,7 +165,7 @@ GO
 --------------------------------------------------------------------------------
 -- YORST score
 
-DROP TABLE IF EXISTS [IDI_Sandpit].[DL-MAA2023-46].[defn_yorst_score_at_police_proceeding_202506]
+DROP TABLE IF EXISTS [$(PROJECT_DB)].[$(PROJECT_SCHEMA)].[defn_yorst_score_at_police_proceeding_$(REFRESH)]
 GO
 
 WITH setup AS (
@@ -210,16 +216,21 @@ ON c.snz_uid = a.snz_uid
 )
 SELECT *
 		,score_prior_offences + score_days_since_last_offense + score_age_at_first_offence AS yorst_score
-INTO [IDI_Sandpit].[DL-MAA2023-46].[defn_yorst_score_at_police_proceeding_202506]
+INTO [$(PROJECT_DB)].[$(PROJECT_SCHEMA)].[defn_yorst_score_at_police_proceeding_$(REFRESH)]
 FROM setup
 GO
 
-CREATE NONCLUSTERED INDEX i_uid ON [IDI_Sandpit].[DL-MAA2023-46].[defn_yorst_score_at_police_proceeding_202506] (snz_uid, pol_poo_proceeding_date)
+-- Compression
+EXEC [IDI_UserCode].[$(PROJECT_SCHEMA)].[compress_table_$(PROJECT_DB)] @table = '[$(PROJECT_DB)].[$(PROJECT_SCHEMA)].[defn_yorst_score_at_police_proceeding_$(REFRESH)]'
+GO
+
+
+CREATE NONCLUSTERED INDEX i_uid ON [$(PROJECT_DB)].[$(PROJECT_SCHEMA)].[defn_yorst_score_at_police_proceeding_$(REFRESH)] (snz_uid, pol_poo_proceeding_date)
 
 --------------------------------------------------------------------------------
 -- Tidy up
 
-DROP VIEW IF EXISTS [DL-MAA2023-46].[tmp_police_offences_earliest_proceeding_per_occurrence]
+DROP VIEW IF EXISTS [$(PROJECT_SCHEMA)].[tmp_police_offences_earliest_proceeding_per_occurrence]
 DROP TABLE IF EXISTS #count_prior_offences
 DROP TABLE IF EXISTS #time_since_last_offence
 DROP TABLE IF EXISTS #age_first_offence

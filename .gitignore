@@ -1,13 +1,20 @@
 # Files to be ignored by GIT
 
-# Files not to ignore
-!*control*.xlsx
-
 # Specific files to ignore
-*run_pipeline_log.txt
+*log_*.txt
+*_log*.txt
 *Archive*
 *in_progress_settings.RDS
+
+# folders to ignore
 00 Exploration/*
+0 Exploration/*
+*/2 Analysis/*/Execution/*
+*/2 Analysis/*/Output/*
+.Rproj.user
+/4 For submission
+/2 Analysis/*/*/Execution
+
 
 # Files to be ignored for R
 *.RHistory
@@ -16,6 +23,7 @@
 *.Rproj.user
 *.Rproj
 *.RData
+*.RDS
 *.rda
 *.rds
 *.utf8.md
@@ -82,5 +90,3 @@
 *.tab
 *.dat
 *.rtf
-
-.Rproj.user

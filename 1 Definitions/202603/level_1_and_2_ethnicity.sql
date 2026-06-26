@@ -53,9 +53,9 @@ Notes:
 3) Codes for non-response or response unidentifiable are given using ranks 98 and 99.
 
 Parameters & Present values:
-  Current refresh = 202506
+  Current refresh = $(REFRESH)
   Prefix = defn_
-  Project schema = DL-MAA2023-46
+  Project schema = $(PROJECT_SCHEMA)
  
 Issues:
 
@@ -63,11 +63,15 @@ History (reverse order):
 2021-10-31 CW
 **************************************************************************************************/
 
+-- :SETVAR PROJECT_DB "SIA_Sandpit"
+-- :SETVAR PROJECT_SCHEMA "DL-MAA2026-04"
+-- :SETVAR REFRESH "202603"
+
 /* create table of all ethnicities */
-DROP TABLE IF EXISTS [IDI_Sandpit].[DL-MAA2023-46].[tmp_ethnicity_list]
+DROP TABLE IF EXISTS [$(PROJECT_DB)].[$(PROJECT_SCHEMA)].[tmp_ethnicity_list]
 GO
 
-CREATE TABLE [IDI_Sandpit].[DL-MAA2023-46].[tmp_ethnicity_list] (
+CREATE TABLE [$(PROJECT_DB)].[$(PROJECT_SCHEMA)].[tmp_ethnicity_list] (
 	snz_uid INT,
 	ethnic_code VARCHAR(20),
 	source_rank INT,
@@ -100,7 +104,7 @@ Census 2023 - currently not working, needs refinement
 --71	99 No information
 
 
---INSERT INTO [IDI_Sandpit].[DL-MAA2023-46].[tmp_ethnicity_list] (snz_uid, ethnic_code, source_rank, record_date)
+--INSERT INTO [$(PROJECT_DB)].[$(PROJECT_SCHEMA)].[tmp_ethnicity_list] (snz_uid, ethnic_code, source_rank, record_date)
 --SELECT [snz_uid]
 --	,cen_ind_ethnic_grp_resp_level2 AS ethnic_code
 --	,CASE
@@ -113,7 +117,7 @@ Census 2023 - currently not working, needs refinement
 --		WHEN [cen_ind_ethgr_src_code] is null OR [cen_ind_ethgr_src_code] = '71' THEN 99
 --		else 1 end AS source_rank
 --	,CAST('2023-03-07' AS DATE) AS record_date
---FROM [IDI_Clean_202506].[cen_clean].[census_individual_2023]
+--FROM [IDI_Clean_$(REFRESH)].[cen_clean].[census_individual_2023]
 --WHERE snz_uid IS NOT NULL
 --GO
 
@@ -133,7 +137,7 @@ Census 2018
 --46  99  Donor's response sourced from within household    
 --51  99  No information   
 
-INSERT INTO [IDI_Sandpit].[DL-MAA2023-46].[tmp_ethnicity_list] (snz_uid, ethnic_code, source_rank, record_date)
+INSERT INTO [$(PROJECT_DB)].[$(PROJECT_SCHEMA)].[tmp_ethnicity_list] (snz_uid, ethnic_code, source_rank, record_date)
 SELECT [snz_uid]
 	,[cen_ind_eth_output_level2] AS ethnic_code
 	,CASE
@@ -146,14 +150,14 @@ SELECT [snz_uid]
 		WHEN [cen_ind_ethgr_impt_ind] is null THEN 99
 		else 2 end AS source_rank
 	,CAST('2018-03-05' AS DATE) AS record_date
-FROM [IDI_Clean_202506].[cen_clean].[census_individual_2018]
+FROM [IDI_Clean_$(REFRESH)].[cen_clean].[census_individual_2018]
 WHERE snz_uid IS NOT NULL
 GO
 
 /************************************
 Census 2013
 ************************************/
-INSERT INTO [IDI_Sandpit].[DL-MAA2023-46].[tmp_ethnicity_list] (snz_uid, ethnic_code, source_rank, record_date)
+INSERT INTO [$(PROJECT_DB)].[$(PROJECT_SCHEMA)].[tmp_ethnicity_list] (snz_uid, ethnic_code, source_rank, record_date)
 SELECT [snz_uid]
 	,CONCAT(
 		SUBSTRING([cen_ind_eth_rand6_grp1_code],1,2),';',
@@ -167,7 +171,7 @@ SELECT [snz_uid]
 		WHEN SUBSTRING([cen_ind_eth_rand6_grp1_code],1,2) in ('99') THEN 99
 		else 3 END AS source_rank
 	,CAST('2013-03-05' AS DATE) AS record_date
-FROM [IDI_Clean_202506].[cen_clean].[census_individual_2013]
+FROM [IDI_Clean_$(REFRESH)].[cen_clean].[census_individual_2013]
 WHERE snz_uid IS NOT NULL
 GO
 
@@ -175,7 +179,7 @@ GO
 DIA births/deaths/marriages/civil unions
 ************************************/
 
-INSERT INTO [IDI_Sandpit].[DL-MAA2023-46].[tmp_ethnicity_list] (snz_uid, ethnic_code, source_rank, record_date)
+INSERT INTO [$(PROJECT_DB)].[$(PROJECT_SCHEMA)].[tmp_ethnicity_list] (snz_uid, ethnic_code, source_rank, record_date)
 SELECT [snz_uid]
 	,CONCAT(
 		SUBSTRING([dia_bir_ethnic1_snz_code],1,2),';',
@@ -189,13 +193,13 @@ SELECT [snz_uid]
 		WHEN SUBSTRING([dia_bir_ethnic1_snz_code],1,2) in ('99') THEN 99
 		else 4 END AS source_rank
 	,DATEFROMPARTS([dia_bir_birth_year_nbr],[dia_bir_birth_month_nbr],1) AS record_date
-FROM [IDI_Clean_202506].[dia_clean].[births]
+FROM [IDI_Clean_$(REFRESH)].[dia_clean].[births]
 WHERE [dia_bir_ethnic1_snz_code] IS NOT NULL
 AND snz_uid IS NOT NULL
 GO
 
 --parent 1
-INSERT INTO [IDI_Sandpit].[DL-MAA2023-46].[tmp_ethnicity_list] (snz_uid, ethnic_code, source_rank, record_date)
+INSERT INTO [$(PROJECT_DB)].[$(PROJECT_SCHEMA)].[tmp_ethnicity_list] (snz_uid, ethnic_code, source_rank, record_date)
 SELECT parent1_snz_uid AS snz_uid
 	,CONCAT(
 		SUBSTRING([dia_bir_parent1_ethnic1_snz_code],1,2),';',
@@ -209,13 +213,13 @@ SELECT parent1_snz_uid AS snz_uid
 		WHEN SUBSTRING([dia_bir_parent1_ethnic1_snz_code],1,2) in ('99') THEN 99
 		else 5 END AS source_rank
 	,datefromparts([dia_bir_birth_year_nbr],[dia_bir_birth_month_nbr],1) AS record_date
-FROM [IDI_Clean_202506].[dia_clean].[births]
+FROM [IDI_Clean_$(REFRESH)].[dia_clean].[births]
 WHERE [dia_bir_parent1_ethnic1_snz_code] IS NOT NULL
 AND parent1_snz_uid IS NOT NULL
 GO
 
 --parent 2
-INSERT INTO [IDI_Sandpit].[DL-MAA2023-46].[tmp_ethnicity_list] (snz_uid, ethnic_code, source_rank, record_date)
+INSERT INTO [$(PROJECT_DB)].[$(PROJECT_SCHEMA)].[tmp_ethnicity_list] (snz_uid, ethnic_code, source_rank, record_date)
 SELECT parent2_snz_uid AS snz_uid
 	,CONCAT(
 		SUBSTRING([dia_bir_parent2_ethnic1_snz_code],1,2),';',
@@ -229,7 +233,7 @@ SELECT parent2_snz_uid AS snz_uid
 		WHEN SUBSTRING([dia_bir_parent2_ethnic1_snz_code],1,2) in ('99') THEN 99
 		else 5 END AS source_rank
 	,datefromparts([dia_bir_birth_year_nbr],[dia_bir_birth_month_nbr],1) AS record_date
-FROM [IDI_Clean_202506].[dia_clean].[births]
+FROM [IDI_Clean_$(REFRESH)].[dia_clean].[births]
 WHERE [dia_bir_parent2_ethnic1_snz_code] IS NOT NULL
 AND parent2_snz_uid IS NOT NULL
 GO
@@ -239,8 +243,8 @@ MOH PHO
 ************************************/
 --keep latest rank 4 ethnic record
 
-INSERT INTO [IDI_Sandpit].[DL-MAA2023-46].[tmp_ethnicity_list] (snz_uid, ethnic_code, source_rank, record_date)
-SELECT b.snz_uid
+INSERT INTO [$(PROJECT_DB)].[$(PROJECT_SCHEMA)].[tmp_ethnicity_list] (snz_uid, ethnic_code, source_rank, record_date)
+SELECT DISTINCT snz_uid
 	,CONCAT(
 		SUBSTRING([moh_nes_ethnic1_snz_code],1,2),';',
 		SUBSTRING([moh_nes_ethnic2_snz_code],1,2),';',
@@ -250,18 +254,15 @@ SELECT b.snz_uid
 		WHEN [moh_nes_ethnic1_snz_code]='99' THEN 99
 		else 6 END AS source_rank
 	,CAST([moh_nes_snapshot_month_date] AS DATE) AS record_date
-FROM [IDI_Clean_202506].[moh_clean].[nes_enrolment] AS a
-INNER JOIN [IDI_Clean_202506].[security].[concordance] AS b
-ON a.snz_moh_uid = b.snz_moh_uid
+FROM [IDI_Clean_$(REFRESH)].[moh_clean].[nes_enrolment]
 WHERE [moh_nes_ethnic1_snz_code] IS NOT NULL
-AND b.snz_uid IS NOT NULL
 GO
 
 /************************************
 MOH NHI
 ************************************/
 
-INSERT INTO [IDI_Sandpit].[DL-MAA2023-46].[tmp_ethnicity_list] (snz_uid, ethnic_code, source_rank, record_date)
+INSERT INTO [$(PROJECT_DB)].[$(PROJECT_SCHEMA)].[tmp_ethnicity_list] (snz_uid, ethnic_code, source_rank, record_date)
 SELECT [snz_uid]
 	,CONCAT(
 		SUBSTRING([moh_pop_ethnic1_snz_code],1,2),';',
@@ -272,7 +273,7 @@ SELECT [snz_uid]
 		WHEN [moh_pop_ethnic1_snz_code]='99' THEN 99
 		else 7 END AS source_rank
 	,[moh_pop_last_updated_date] AS record_date
-FROM [IDI_Clean_202506].[moh_clean].[pop_cohort_demographics]
+FROM [IDI_Clean_$(REFRESH)].[moh_clean].[pop_cohort_demographics]
 WHERE snz_uid IS NOT NULL
 GO
 
@@ -280,7 +281,7 @@ GO
 MOE
 ************************************/
 
-INSERT INTO [IDI_Sandpit].[DL-MAA2023-46].[tmp_ethnicity_list] (snz_uid, ethnic_code, source_rank, record_date)
+INSERT INTO [$(PROJECT_DB)].[$(PROJECT_SCHEMA)].[tmp_ethnicity_list] (snz_uid, ethnic_code, source_rank, record_date)
 SELECT [snz_uid]
 	,CONCAT(
 		SUBSTRING([moe_spi_eth1_text],1,2),';',
@@ -291,7 +292,7 @@ SELECT [snz_uid]
 		WHEN SUBSTRING([moe_spi_eth1_text],1,2)='99' THEN 99
 		else 8 END AS source_rank
 	,[moe_spi_mod_address_date] AS record_date
-FROM [IDI_Clean_202506].[moe_clean].[student_per]
+FROM [IDI_Clean_$(REFRESH)].[moe_clean].[student_per]
 WHERE [moe_spi_eth1_text] IS NOT NULL
 AND snz_uid IS NOT NULL
 GO
@@ -300,7 +301,7 @@ GO
 ACC
 ************************************/
 
-INSERT INTO [IDI_Sandpit].[DL-MAA2023-46].[tmp_ethnicity_list] (snz_uid, ethnic_code, source_rank, record_date)
+INSERT INTO [$(PROJECT_DB)].[$(PROJECT_SCHEMA)].[tmp_ethnicity_list] (snz_uid, ethnic_code, source_rank, record_date)
 SELECT cl.[snz_uid]
 	,CONCAT(
 		SUBSTRING([acc_cli_ethnic1_snz_code],1,2),';',
@@ -311,7 +312,7 @@ SELECT cl.[snz_uid]
 		WHEN SUBSTRING([acc_cli_ethnic1_snz_code],1,2)='99' THEN 99
 		else 9 END AS source_rank
 	,CAST('2021-03-01' AS DATE) AS record_date --check if better source of this
-FROM [IDI_Clean_202506].[acc_clean].[clients] cl
+FROM [IDI_Clean_$(REFRESH)].[acc_clean].[clients] cl
 WHERE cl.snz_uid IS NOT NULL
 GO
 
@@ -319,7 +320,7 @@ GO
 MSD
 ************************************/
 
-INSERT INTO [IDI_Sandpit].[DL-MAA2023-46].[tmp_ethnicity_list] (snz_uid, ethnic_code, source_rank, record_date)
+INSERT INTO [$(PROJECT_DB)].[$(PROJECT_SCHEMA)].[tmp_ethnicity_list] (snz_uid, ethnic_code, source_rank, record_date)
 SELECT [snz_uid]
 	,CONCAT(
 		SUBSTRING([msd_swn_ucvii_ethnic1_snz_code],1,2),';',
@@ -330,7 +331,7 @@ SELECT [snz_uid]
 		WHEN SUBSTRING([msd_swn_ucvii_ethnic1_snz_code],1,2)='99' THEN 99
 		else 10 END AS source_rank
 	,CAST('2021-03-01' AS DATE) AS record_date --check if better source of this
-FROM [IDI_Clean_202506].[msd_clean].[msd_swn]
+FROM [IDI_Clean_$(REFRESH)].[msd_clean].[msd_swn]
 WHERE snz_uid IS NOT NULL
 GO
 
@@ -338,7 +339,7 @@ GO
 Student Loans and Allowances MSD (SLM)
 ************************************/
 
-INSERT INTO [IDI_Sandpit].[DL-MAA2023-46].[tmp_ethnicity_list] (snz_uid, ethnic_code, source_rank, record_date)
+INSERT INTO [$(PROJECT_DB)].[$(PROJECT_SCHEMA)].[tmp_ethnicity_list] (snz_uid, ethnic_code, source_rank, record_date)
 SELECT [snz_uid]
 	,CONCAT(
 		SUBSTRING([msd_sla_ethnic1_code],1,2),';',
@@ -349,7 +350,7 @@ SELECT [snz_uid]
 		WHEN SUBSTRING([msd_sla_ethnic1_code],1,2)='99' THEN 99
 		else 11 END AS source_rank
 	,DATEFROMPARTS([msd_sla_year_nbr],7,1) AS record_date
-FROM [IDI_Clean_202506].[sla_clean].[msd_borrowing]
+FROM [IDI_Clean_$(REFRESH)].[sla_clean].[msd_borrowing]
 WHERE snz_uid IS NOT NULL
 GO
 
@@ -367,7 +368,7 @@ LINZ migrant survey
 HLFS
 ************************************/
 
-INSERT INTO [IDI_Sandpit].[DL-MAA2023-46].[tmp_ethnicity_list] (snz_uid, ethnic_code, source_rank, record_date)
+INSERT INTO [$(PROJECT_DB)].[$(PROJECT_SCHEMA)].[tmp_ethnicity_list] (snz_uid, ethnic_code, source_rank, record_date)
 SELECT a.[snz_uid]
 	,CONCAT(
 		SUBSTRING([hlfs_urd_ethnic_1_code],1,2),';',
@@ -381,8 +382,8 @@ SELECT a.[snz_uid]
 		WHEN SUBSTRING([hlfs_urd_ethnic_1_code],1,2)='99' THEN 99
 		else 14 END AS source_rank
 	,[nzis_is_quarter_date] AS record_date
-FROM [IDI_Clean_202506].[hlfs_clean].[data] AS a
-INNER JOIN [IDI_Clean_202506].[hlfs_clean].[nzis] AS b
+FROM [IDI_Clean_$(REFRESH)].[hlfs_clean].[data] AS a
+INNER JOIN [IDI_Clean_$(REFRESH)].[hlfs_clean].[nzis] AS b
 ON a.snz_uid = b.snz_uid
 AND a.[hlfs_urd_quarter_nbr] = b.[nzis_is_quarter_nbr]
 AND a.[snz_hlfs_hhld_uid] = b.[snz_hlfs_hhld_uid]
@@ -403,33 +404,36 @@ GSS
 Keep best rank for each person
 ***************************************************************************************************************/
 
-CREATE NONCLUSTERED INDEX my_index ON [IDI_Sandpit].[DL-MAA2023-46].[tmp_ethnicity_list] (snz_uid)
+CREATE NONCLUSTERED INDEX my_index ON [$(PROJECT_DB)].[$(PROJECT_SCHEMA)].[tmp_ethnicity_list] (snz_uid)
 GO
 
-DROP TABLE IF EXISTS [IDI_Sandpit].[DL-MAA2023-46].[defn_ethnicity_level_2_202506]
+DROP TABLE IF EXISTS [$(PROJECT_DB)].[$(PROJECT_SCHEMA)].[defn_ethnicity_level_2_$(REFRESH)]
 GO
 
 WITH source_ranked AS (
 	SELECT *
 		,RANK() OVER (PARTITION BY [snz_uid] ORDER BY source_rank, record_date) AS ranked
-	FROM [IDI_Sandpit].[DL-MAA2023-46].[tmp_ethnicity_list]
+	FROM [$(PROJECT_DB)].[$(PROJECT_SCHEMA)].[tmp_ethnicity_list]
 )
 SELECT snz_uid
 	,ethnic_code
 	,source_rank
-INTO [IDI_Sandpit].[DL-MAA2023-46].[defn_ethnicity_level_2_202506]
+INTO [$(PROJECT_DB)].[$(PROJECT_SCHEMA)].[defn_ethnicity_level_2_$(REFRESH)]
 FROM source_ranked
 WHERE ranked = 1
 AND snz_uid IS NOT NULL
 GO
 
-CREATE NONCLUSTERED INDEX my_index_name ON [IDI_Sandpit].[DL-MAA2023-46].[defn_ethnicity_level_2_202506] (snz_uid);
+CREATE NONCLUSTERED INDEX my_index_name ON [$(PROJECT_DB)].[$(PROJECT_SCHEMA)].[defn_ethnicity_level_2_$(REFRESH)] (snz_uid);
 GO
---ALTER TABLE [IDI_Sandpit].[DL-MAA2023-46].[defn_ethnicity_level_2_202506] REBUILD PARTITION = ALL WITH (DATA_COMPRESSION = PAGE)
---GO
+-- original / naive
+--ALTER TABLE [$(PROJECT_DB)].[$(PROJECT_SCHEMA)].[defn_ethnicity_level_2_$(REFRESH)] REBUILD PARTITION = ALL WITH (DATA_COMPRESSION = PAGE)
+-- procedure / faster
+EXEC [IDI_UserCode].[$(PROJECT_SCHEMA)].[compress_table_$(PROJECT_DB)] @table = '[$(PROJECT_DB)].[$(PROJECT_SCHEMA)].[defn_ethnicity_level_2_$(REFRESH)]'
+
 
 /* remove raw list table */
-DROP TABLE IF EXISTS [IDI_Sandpit].[DL-MAA2023-46].[tmp_ethnicity_list]
+DROP TABLE IF EXISTS [$(PROJECT_DB)].[$(PROJECT_SCHEMA)].[tmp_ethnicity_list]
 GO
 
 /***************************************************************************************************************
@@ -439,10 +443,10 @@ Indicator view
 USE IDI_UserCode
 GO
 
-DROP VIEW IF EXISTS [DL-MAA2023-46].[defn_ethnicity_level_1_and_2_202506]
+DROP VIEW IF EXISTS [$(PROJECT_SCHEMA)].[defn_ethnicity_level_1_and_2_$(REFRESH)]
 GO
 
-CREATE VIEW [DL-MAA2023-46].[defn_ethnicity_level_1_and_2_202506] AS
+CREATE VIEW [$(PROJECT_SCHEMA)].[defn_ethnicity_level_1_and_2_$(REFRESH)] AS
 SELECT snz_uid
 	,ethnic_code
 	,source_rank
@@ -496,5 +500,5 @@ SELECT snz_uid
 		OR ethnic_code like '%97%'
 		OR ethnic_code like '%98%'
 		OR ethnic_code like '%99%', 1, 0) AS eth_non_response
-FROM [IDI_Sandpit].[DL-MAA2023-46].[defn_ethnicity_level_2_202506]
+FROM [$(PROJECT_DB)].[$(PROJECT_SCHEMA)].[defn_ethnicity_level_2_$(REFRESH)]
 GO

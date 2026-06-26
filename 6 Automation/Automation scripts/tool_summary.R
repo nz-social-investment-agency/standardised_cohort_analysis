@@ -5,7 +5,7 @@
 
 ## User parameters -------------------------------------------------------- ----
 
-settings_file = glue::glue("{BASE_FOLDER}/2 Analysis/{COHORT}/Execution/in_progress_settings.RDS")
+settings_file = glue::glue("{BASE_FOLDER}/2 Analysis/{COHORT}/{REFRESH}/Execution/in_progress_settings.RDS")
 
 ## Load settings ---------------------------------------------------------- ----
 
@@ -20,15 +20,16 @@ for(setting in required_settings){
 ## Database connection ---------------------------------------------------- ----
 
 db_connection = DBI::dbConnect(odbc::odbc(), .connection_string = db_connection_string)
-remote_master_table = dplyr::tbl(db_connection, IDIr:::sql2id(summary_master_table))
+remote_master_table = dplyr::tbl(db_connection, ADAPT:::sql2id(summary_master_table))
 
 ## Run assembly tool ------------------------------------------------------ ----
 
-result_df = IDIr::run_summary(
+result_df = ADAPT::run_summary(
   control_file = control_file_path,
   sheet = summary_sheet,
   tbl = remote_master_table,
-  save_file = raw_summary_file
+  save_file = raw_summary_file,
+  partial_output = FALSE
 )
 
 ## All completed successfully --------------------------------------------- ----

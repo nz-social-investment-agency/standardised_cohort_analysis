@@ -4,7 +4,7 @@ Author: Simon Anastasiadis
 Peer review: 
 
 Inputs & Dependencies:
-- [IDI_Clean_202506].[moh_clean].[pharmaceutical]
+- [IDI_Clean_$(REFRESH)].[moh_clean].[pharmaceutical]
 
 Description:
 Pharmaceutical dispensing filtered to personal dispensing for use in analysis
@@ -20,7 +20,7 @@ Notes:
 	- Join to metadata and count distinct drugs
 
 Parameters & Present values:
-  Current refresh = 202506
+  Current refresh = $(REFRESH)
 
 Issues: 
 
@@ -29,18 +29,22 @@ History (reverse order):
 2025-03-14 SA
 **************************************************************************************************/
 
+-- :SETVAR PROJECT_DB "SIA_Sandpit"
+-- :SETVAR PROJECT_SCHEMA "DL-MAA2026-04"
+-- :SETVAR REFRESH "202603"
+
 USE IDI_UserCode
 GO
 
-DROP VIEW IF EXISTS [DL-MAA2023-46].[defn_pharma_dispensing_202506]
+DROP VIEW IF EXISTS [$(PROJECT_SCHEMA)].[defn_pharma_dispensing_$(REFRESH)]
 GO
 
-CREATE VIEW [DL-MAA2023-46].[defn_pharma_dispensing_202506] AS
+CREATE VIEW [$(PROJECT_SCHEMA)].[defn_pharma_dispensing_$(REFRESH)] AS
 SELECT [snz_uid]
     ,[moh_pha_dispensed_date]
     ,[moh_pha_dim_form_pack_code] -- can join to metadata for drug name
     ,[moh_pha_uniq_disp_id_nbr]
-FROM [IDI_Clean_202506].[moh_clean].[pharmaceutical]
+FROM [IDI_Clean_$(REFRESH)].[moh_clean].[pharmaceutical]
 -- exclude administrative records
 WHERE [moh_pha_admin_record_ind] = 0 -- (like brand switches)
 AND [moh_pha_order_type_code] NOT IN (3,4,5) -- (like bulk and wholesale orders)

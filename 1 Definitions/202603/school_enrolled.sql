@@ -4,11 +4,12 @@ Author: Ashleigh Arendt
 Peer review: Charlotte Rose
 
 Inputs & Dependencies:
-- [IDI_Clean_202506].[moe_clean].[student_enrol] - this can be generated as part of the school attendance code module
+- [IDI_Clean_$(REFRESH)].[moe_clean].[student_enrol] - this can be generated as part of the school attendance code module
+- max_date MOE student_enrol.sql >> [IDI_UserCode].[$(PROJECT_SCHEMA)].[max_date_MOE_student_enrol]
 
 Outputs:
-- [IDI_UserCode].[DL-MAA2023-46].[defn_school_enrolled_202506]
-- [IDI_UserCode].[DL-MAA2023-46].[defn_school_enrolled_no_overlaps_202506]
+- [IDI_UserCode].[$(PROJECT_SCHEMA)].[defn_school_enrolled_$(REFRESH)]
+- [IDI_UserCode].[$(PROJECT_SCHEMA)].[defn_school_enrolled_no_overlaps_$(REFRESH)]
 
 Description:
 Indication of whether a child was enrolled in school as indicated by moe's student enrol dataset.
@@ -38,9 +39,9 @@ Notes:
 
 
 Parameters & Present values:
-  Current refresh = 202506
+  Current refresh = $(REFRESH)
   Prefix = defn_
-  Project schema = [DL-MAA2023-46]
+  Project schema = [$(PROJECT_SCHEMA)]
   Earliest start date = 2007
 
 Issues: 
@@ -53,34 +54,51 @@ Issues:
 	202403 Q22023
 	202406 Q22023
 	202410 Q22024
+	202510 Q22025
+	202603 Q22025
 
 
  Runtime (before joining to master) - 00:04:17
  Runtime (joining to master) - 01:58:59 
 
 History (reverse order):
+2025-11-06 SA cap open spells with max_date
 2025-09-19 CR adding back in private and correspondence schools for better coverage
 2025-09-19 SA revise to enable duration
 2023-03-14 - AA
 **************************************************************************************************/
 
+-- :SETVAR PROJECT_DB "SIA_Sandpit"
+-- :SETVAR PROJECT_SCHEMA "DL-MAA2026-04"
+-- :SETVAR REFRESH "202603"
+
 USE IDI_UserCode
 GO
 
-DROP VIEW IF EXISTS [DL-MAA2023-46].[defn_school_enrolled_202506]
+DROP VIEW IF EXISTS [$(PROJECT_SCHEMA)].[defn_school_enrolled_$(REFRESH)]
 GO
 
-CREATE VIEW [DL-MAA2023-46].[defn_school_enrolled_202506] AS
+CREATE VIEW [$(PROJECT_SCHEMA)].[defn_school_enrolled_$(REFRESH)] AS
+WITH max_date AS (
+	SELECT TOP 1 max_date
+	FROM [IDI_UserCode].[$(PROJECT_SCHEMA)].[max_date_MOE_student_enrol_$(REFRESH)]
+)
 SELECT a.snz_uid
     , a.moe_esi_provider_code
 	, a.moe_esi_entry_year_lvl_nbr
 	, a.moe_esi_start_date
-	, COALESCE(a.moe_esi_end_date,'9999-12-31') AS moe_esi_end_date
-FROM [IDI_Clean_202506].[moe_clean].[student_enrol] a
-LEFT JOIN [IDI_Clean_202506].[moe_clean].[provider_profile] b
+	, a.moe_esi_end_date AS raw_moe_esi_end_date
+	, CASE
+		WHEN a.moe_esi_end_date IS NULL THEN max_date
+		WHEN a.moe_esi_end_date > max_date THEN max_date
+		ELSE a.moe_esi_end_date
+		END AS moe_esi_end_date
+FROM [IDI_Clean_$(REFRESH)].[moe_clean].[student_enrol] a
+LEFT JOIN [IDI_Clean_$(REFRESH)].[moe_clean].[provider_profile] b
 	ON a.moe_esi_provider_code = b.moe_pp_provider_code
-LEFT JOIN [IDI_Clean_202506].[moe_clean].[student_per] c
+LEFT JOIN [IDI_Clean_$(REFRESH)].[moe_clean].[student_per] c
 	ON a.snz_uid = c.snz_uid
+CROSS JOIN max_date
 WHERE DATEDIFF(DAY, moe_esi_start_date,  COALESCE(a.moe_esi_end_date,'9999-12-31')) ! = 1 -- exclude one day enrolments
 --AND(
 --    b.moe_pp_provider_auth_code NOT IN (42002, 42003)
@@ -99,16 +117,16 @@ GO
 ---------------------------------------------------------------------------------------------------
 -- Removing overlaps
 
-DROP VIEW IF EXISTS [DL-MAA2023-46].[defn_school_enrolled_no_overlaps_202506]
+DROP VIEW IF EXISTS [$(PROJECT_SCHEMA)].[defn_school_enrolled_no_overlaps_$(REFRESH)]
 GO
 
-CREATE VIEW [DL-MAA2023-46].[defn_school_enrolled_no_overlaps_202506] AS
+CREATE VIEW [$(PROJECT_SCHEMA)].[defn_school_enrolled_no_overlaps_$(REFRESH)] AS
 WITH
 add_row_number AS (
 
 	SELECT *
 		,ROW_NUMBER() OVER (PARTITION BY snz_uid ORDER BY moe_esi_start_date, moe_esi_end_date, moe_esi_provider_code) AS row_num
-	FROM [IDI_UserCode].[DL-MAA2023-46].[defn_school_enrolled_202506]
+	FROM [IDI_UserCode].[$(PROJECT_SCHEMA)].[defn_school_enrolled_$(REFRESH)]
 
 ),
 trimmed_end_date AS (

@@ -8,19 +8,25 @@ Outcomes: Improve attendance, transience, youth crime
 NOTES
 - Numbers plateau around 2006, but extend further back, choosing year 2000 as the first cohort of 12 year olds to look at
 - Creating one table to reduce size
+- CR updated refresh to 202510 -> 2026/01/12
+- CF updated to refresh 202603 -> 2026/04/01
 
 
 *****************************************/
+
+-- :SETVAR PROJECT_DB "SIA_Sandpit"
+-- :SETVAR PROJECT_SCHEMA "DL-MAA2026-04"
+-- :SETVAR REFRESH "202603"
 
 /* DEFINITION */
 
 USE IDI_USERCODE;
 GO
 
-DROP VIEW IF EXISTS [DL-MAA2023-46].[defn_cohort_SSEE_202506]; -- stand-downs, suspensions, exclusions & expulsions
+DROP VIEW IF EXISTS [$(PROJECT_SCHEMA)].[cohort_SSEE_$(REFRESH)]; -- stand-downs, suspensions, exclusions & expulsions
 GO
 
-CREATE VIEW [DL-MAA2023-46].[defn_cohort_SSEE_202506] AS 
+CREATE VIEW [$(PROJECT_SCHEMA)].[cohort_SSEE_$(REFRESH)] AS 
 WITH first_ssee AS (
 
 	SELECT a.snz_uid
@@ -32,7 +38,7 @@ WITH first_ssee AS (
 			END AS enddate
 		, 1 AS sd_sus
 		, ROW_NUMBER() OVER (PARTITION BY snz_uid ORDER BY moe_inv_start_date) AS n
-	FROM [IDI_Clean_202506].[moe_clean].[student_interventions] AS a
+	FROM [IDI_Clean_$(REFRESH)].[moe_clean].[student_interventions] AS a
 	WHERE a.moe_inv_intrvtn_code IN (7,8) -- code standdown = 8, suspension = 7
 
 )
@@ -41,7 +47,7 @@ SELECT s.snz_uid
 	, DATEADD(YEAR,18,pd.snz_birth_date_proxy) as cohort_end
 	, moe_inv_inst_num_code
 FROM first_ssee AS s
-LEFT JOIN [IDI_Clean_202506].[data].[personal_detail] AS pd
+LEFT JOIN [IDI_Clean_$(REFRESH)].[data].[personal_detail] AS pd
 	ON pd.snz_uid = s.snz_uid
 WHERE n = 1
 	AND s.[start_date] < DATEADD(YEAR, 13, pd.snz_birth_date_proxy);

@@ -18,49 +18,39 @@
 
 stopifnot(exists("BASE_FOLDER"))
 stopifnot(exists("COHORT"))
+stopifnot(exists("REFRESH"))
 
-settings_file = glue::glue("{BASE_FOLDER}/2 Analysis/{COHORT}/Execution/in_progress_settings.RDS")
+settings_file = glue::glue("{BASE_FOLDER}/2 Analysis/{COHORT}/{REFRESH}/Execution/in_progress_settings.RDS")
+
+## load project settings -------------------------------------------------- ----
+
+settings = readRDS(file.path(BASE_FOLDER, "6 Automation", "pipeline_settings.RDS"))
+
+PREFIX = settings$PREFIX
+PROJECT_DB = settings$PROJECT_DB
+PROJECT_SCHEMA = settings$PROJECT_SCHEMA
+db_connection_string = settings$db_connection_string
 
 ## inputs ----------------------------------------------------------------- ----
 
-phase = "matching forecast"
-
 # universal
-control_file_path = "{BASE_FOLDER}/2 Analysis/{COHORT}/Execution/control_file - matching_forecast.xlsx"
-sql_folder = "{BASE_FOLDER}/1 Definitions"
+phase = "matching forecast"
+control_file_path = "{BASE_FOLDER}/2 Analysis/{COHORT}/{REFRESH}/Execution/control_file - matching_forecast - {COHORT}_{REFRESH}.xlsx"
 
 # assembly
 assembly_sheet = "assembly"
-assembly_master_table = "[SIA_Sandpit].[DL-MAA2023-46].[{COHORT}_forecast_matching_master_table]"
+assembly_master_table = "[{PROJECT_DB}].[{PROJECT_SCHEMA}].[{PREFIX}{COHORT}_forecast_matching_master_table_{REFRESH}]"
 
 # matching
-matching_results = "[SIA_Sandpit].[DL-MAA2023-46].[{COHORT}_forecast_matched_uids]"
+matching_results = "[{PROJECT_DB}].[{PROJECT_SCHEMA}].[{PREFIX}{COHORT}_forecast_matched_uids_{REFRESH}]"
 exact_match_cols = c("age_ref_date")
-
-## database connection ---------------------------------------------------- ----
-
-# database connection - requires SQL Server in environment
-db_connection_string = "DRIVER=ODBC Driver 18 for SQL Server; Trusted_Connection=Yes; TrustServerCertificate=Yes;"
-db_connection_string = paste(db_connection_string, "DATABASE=IDI_Clean_202410;")
-db_connection_string = paste(db_connection_string, "SERVER=PRTPRDSQL36, 1433")
-
-## copy control file if it does not exist --------------------------------- ----
-
-control_file_path = glue::glue(control_file_path)
-if(!file.exists(control_file_path)){
-  
-  control_file_source = file.path(BASE_FOLDER, "6 Automation", "Control files", "control_file - matching_forecast.xlsx")
-  file.copy(control_file_source, control_file_path)
-  
-}
 
 ## write out settings ----------------------------------------------------- ----
 
 settings = list(
-  phase = phase,
   # universal
+  phase = phase,
   control_file_path = glue::glue(control_file_path),
-  sql_folder = glue::glue(sql_folder),
   db_connection_string = db_connection_string,
   # assembly
   assembly_sheet = glue::glue(assembly_sheet),

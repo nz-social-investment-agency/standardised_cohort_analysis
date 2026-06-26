@@ -1,0 +1,14 @@
+2026-04-10
+This folder exists to hold automaticly generated backup copies of control files
+
+Because version control works best with plain text files,
+while control files are easiest to manage as Excel (xlsx) files,
+this folder stores a copy of control files as CSV.
+
+Each time an control file is copied for use in an analysis, a CSV version of
+each sheet is saved into this folder. This allows for version control over
+these files to track changes in control files, while giving users an easier
+experience.
+
+Avoid manual editing of files in this folder - they will be overwritten.
+Avoid saving anything else to this folder - this is contrary to the folder purpose.

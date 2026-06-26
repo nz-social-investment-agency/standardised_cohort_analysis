@@ -4,10 +4,10 @@ Author: Charlotte Rose
 Peer review: Ashleigh Arendt
 
 Inputs & Dependencies:
-- [IDI_Clean_202506].[moe_clean].[student_enrol]
-- [IDI_Clean_202506].[moe_clean].[provider_profile]
-- [IDI_Metadata_202506].[moe_school].[provider_type_code] 
-- [IDI_Metadata_202506].[moe_school].[sch_region_code]
+- [IDI_Clean_$(REFRESH)].[moe_clean].[student_enrol]
+- [IDI_Clean_$(REFRESH)].[moe_clean].[provider_profile]
+- [IDI_Metadata_$(REFRESH)].[moe_school].[provider_type_code] 
+- [IDI_Metadata_$(REFRESH)].[moe_school].[sch_region_code]
 
 Description:
 Non-structural school changes for students.
@@ -38,23 +38,45 @@ Notes:
 	202403 Q22023
 	202406 Q22023
 	202410 Q22024
+	202510 Q22025
+	202603 Q22025
 
 Parameters & Present values:
-  Current refresh = 202506
+  Current refresh = $(REFRESH)
   Prefix = defn_
-  Project schema = [DL-MAA2023-55]
+  Project schema = [$(PROJECT_SCHEMA)]
   Earliest start date = '2018-01-01'
 
 Issues:
 
 History (reverse order):
+2025-12-01 - SA move compression to start
 2025-06-18 - SA polish for Commissioning Cohorts
 2024-05-01 - AA small tweaks to remove Alt Ed duplicates
 2024-03-18 - CR adapted code from AW Alt ed analysis
 **************************************************************************************************/ 
 
-DROP TABLE IF EXISTS [SIA_Sandpit].[DL-MAA2023-55].[defn_school_changes_202506]
+-- :SETVAR PROJECT_DB "SIA_Sandpit"
+-- :SETVAR PROJECT_SCHEMA "DL-MAA2026-04"
+-- :SETVAR REFRESH "202603"
+
+DROP TABLE IF EXISTS [$(PROJECT_DB)].[$(PROJECT_SCHEMA)].[defn_school_changes_$(REFRESH)]
 GO
+
+----------------------------------------------------------------------------------------------------
+-- Create table and set compression
+
+CREATE TABLE [$(PROJECT_DB)].[$(PROJECT_SCHEMA)].[defn_school_changes_$(REFRESH)] (
+	snz_uid INT
+	, transition_date DATE NOT NULL
+    , any_move TINYINT
+    , structural_move TINYINT
+    , multipurpose_school TINYINT
+)
+GO
+
+-- compress empty table
+-- ALTER TABLE [$(PROJECT_DB)].[$(PROJECT_SCHEMA)].[defn_school_changes_$(REFRESH)] REBUILD PARTITION = ALL WITH (DATA_COMPRESSION = PAGE)
 
 ----------------------------------------------------------------------------------------------------
 -- all school spells
@@ -69,10 +91,10 @@ WITH schoolspells AS(
         , e.moe_esi_start_date AS [date_started]
         , COALESCE(e.moe_esi_end_date, GETDATE()) AS [date_left] --imputing a dummy end date if still attending
         , e.moe_esi_extrtn_date AS [EXTRACT date]
-    FROM [IDI_Clean_202506].[moe_clean].[student_enrol] e
-    LEFT JOIN [IDI_Clean_202506].[moe_clean].[provider_profile] b
+    FROM [IDI_Clean_$(REFRESH)].[moe_clean].[student_enrol] e
+    LEFT JOIN [IDI_Clean_$(REFRESH)].[moe_clean].[provider_profile] b
     ON e.moe_esi_provider_code = b.moe_pp_provider_code
-    LEFT JOIN [IDI_Metadata_202506].[moe_school].[provider_type_code] c
+    LEFT JOIN [IDI_Metadata_$(REFRESH)].[moe_school].[provider_type_code] c
     ON b.moe_pp_provider_type_code = c.ProviderTypeId
 
 ),
@@ -85,7 +107,9 @@ rank_schoolspells AS(
 
 )
 -- specify whether move was structural OR not.
-SELECT to_s.*
+INSERT INTO [$(PROJECT_DB)].[$(PROJECT_SCHEMA)].[defn_school_changes_$(REFRESH)]
+SELECT to_s.snz_uid
+	, to_s.date_started as transition_date
     , IIF(to_s.moe_esi_provider_code != from_s.moe_esi_provider_code, 1, 0) AS any_move
     , IIF(
 		to_s.moe_esi_provider_code != from_s.moe_esi_provider_code
@@ -135,7 +159,6 @@ SELECT to_s.*
 		WHEN (to_s.school_type = 'Teen Parent Unit' OR from_s.school_type = 'Teen Parent Unit' ) 
 		AND DATEDIFF(DAY, from_s.date_started, to_s.date_started) < 7 THEN 1
 			ELSE 0 END AS multipurpose_school
-INTO [SIA_Sandpit].[DL-MAA2023-55].[defn_school_changes_202506]
 FROM rank_schoolspells AS to_s
 LEFT JOIN rank_schoolspells AS from_s
 ON to_s.snz_uid = from_s.snz_uid
@@ -145,13 +168,13 @@ GO
 ----------------------------------------------------------------------------------------------------
 -- remove spells that are not of interest
 
-DELETE FROM [SIA_Sandpit].[DL-MAA2023-55].[defn_school_changes_202506]
+DELETE FROM [$(PROJECT_DB)].[$(PROJECT_SCHEMA)].[defn_school_changes_$(REFRESH)]
 WHERE structural_move = 1 --not a stuctural move
 
-DELETE FROM [SIA_Sandpit].[DL-MAA2023-55].[defn_school_changes_202506]
+DELETE FROM [$(PROJECT_DB)].[$(PROJECT_SCHEMA)].[defn_school_changes_$(REFRESH)]
 WHERE multipurpose_school = 1 --not teen parent OR alt ed duplicate
 
-DELETE FROM [SIA_Sandpit].[DL-MAA2023-55].[defn_school_changes_202506]
+DELETE FROM [$(PROJECT_DB)].[$(PROJECT_SCHEMA)].[defn_school_changes_$(REFRESH)]
 WHERE any_move <> 1 -- must not be their first school
 OR any_move IS NULL
 GO
@@ -159,8 +182,5 @@ GO
 ----------------------------------------------------------------------------------------------------
 -- transcience is then indicated by 2+ school moves
 
-CREATE NONCLUSTERED INDEX my_index_name ON  [SIA_Sandpit].[DL-MAA2023-55].[defn_school_changes_202506] ([snz_uid])
-GO
-
-ALTER TABLE [SIA_Sandpit].[DL-MAA2023-55].[defn_school_changes_202506] REBUILD PARTITION = ALL WITH (DATA_COMPRESSION = PAGE)
+CREATE NONCLUSTERED INDEX my_index_name ON  [$(PROJECT_DB)].[$(PROJECT_SCHEMA)].[defn_school_changes_$(REFRESH)] ([snz_uid])
 GO

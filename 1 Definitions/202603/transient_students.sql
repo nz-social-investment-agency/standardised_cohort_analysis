@@ -4,13 +4,14 @@ Author: Wian Lusse
 Peer review: Charlotte Rose
 
 Inputs & Dependencies:
-- [IDI_Clean_202506].[moe_clean].[student_enrol]
-- [IDI_Clean_202506].[moe_clean].[provider_profile]
-- [IDI_Metadata_202506].[moe_school].[provider_type_code] 
-- [IDI_Metadata_202506].[moe_school].[sch_region_code]
+- [IDI_Clean_$(REFRESH)].[moe_clean].[student_enrol]
+- [IDI_Clean_$(REFRESH)].[moe_clean].[provider_profile]
+- [IDI_Metadata_$(REFRESH)].[moe_school].[provider_type_code] 
+- [IDI_Metadata_$(REFRESH)].[moe_school].[sch_region_code]
+- max_date MOE student_enrol.sql >> [IDI_UserCode].[$(PROJECT_SCHEMA)].[max_date_MOE_student_enrol]
 
 Outputs:
-- [IDI_UserCode].[DL-MAA2023-46].[transient_students_202506]
+- [IDI_UserCode].[$(PROJECT_SCHEMA)].[transient_students_$(REFRESH)]
 
 Description:
 Finding the number of students who have had more than two non-structural* school or kura moves. In this case we are not trimming to a time period (i.e within one year), rather 
@@ -29,9 +30,9 @@ Notes:
 1) 
 
 Parameters & Present values:
-  Current refresh = 202506
+  Current refresh = $(REFRESH)
   Prefix = _
-  Project schema = [DL-MAA2023-46]
+  Project schema = [$(PROJECT_SCHEMA)]
   Earliest start date = '2018-01-01'
 
 Issues:
@@ -52,19 +53,30 @@ Issues:
 	202403 Q22023
 	202406 Q22023
 	202410 Q22024
+	202510 Q22025
+	202603 Q22025
 
 History (reverse order):
+2025-11-06 SA cap open spells with max_date
 2025-06 - WL adapted from RDP
 **************************************************************************************************/ 
+
+-- :SETVAR PROJECT_DB "SIA_Sandpit"
+-- :SETVAR PROJECT_SCHEMA "DL-MAA2026-04"
+-- :SETVAR REFRESH "202603"
 
 USE IDI_UserCode
 GO
 
-DROP VIEW IF EXISTS [DL-MAA2023-46].[defn_transient_students_202506]
+DROP VIEW IF EXISTS [$(PROJECT_SCHEMA)].[defn_transient_students_$(REFRESH)]
 GO
 
-CREATE VIEW [DL-MAA2023-46].[defn_transient_students_202506] AS
-WITH schoolspells AS(
+CREATE VIEW [$(PROJECT_SCHEMA)].[defn_transient_students_$(REFRESH)] AS
+WITH max_date AS (
+	SELECT TOP 1 max_date
+	FROM [IDI_UserCode].[$(PROJECT_SCHEMA)].[max_date_MOE_student_enrol_$(REFRESH)]
+),
+schoolspells AS(
 
     SELECT DISTINCT e.snz_uid
         , e.snz_moe_uid
@@ -72,24 +84,24 @@ WITH schoolspells AS(
         , e.moe_esi_provider_code
         , c.ProviderTypeId
         , c.ProviderTypeDescription AS [school_type]
-        , e.moe_esi_start_date AS [date_started]
-        , COALESCE(e.moe_esi_end_date, GETDATE()) AS [date_left] --imputing a dummy end date if still attending
+        , CAST(e.moe_esi_start_date AS DATE) AS [date_started]
+		, CAST(e.moe_esi_end_date AS DATE) AS raw_moe_esi_end_date
+		, CASE --imputing a dummy end date if still attending
+			WHEN e.moe_esi_end_date IS NULL THEN max_date
+			WHEN e.moe_esi_end_date > max_date THEN max_date
+			ELSE CAST(e.moe_esi_end_date AS DATE)
+			END AS [date_left]
         , e.moe_esi_extrtn_date AS [EXTRACT date]
-    FROM [IDI_Clean_202506].[moe_clean].[student_enrol] e
-    LEFT JOIN [IDI_Clean_202506].[moe_clean].[provider_profile] b
+		-- order schools for each sutdent by start date
+		, ROW_NUMBER() OVER(PARTITION BY snz_uid ORDER BY e.moe_esi_start_date) AS [RANK]
+    FROM [IDI_Clean_$(REFRESH)].[moe_clean].[student_enrol] AS e
+    LEFT JOIN [IDI_Clean_$(REFRESH)].[moe_clean].[provider_profile] AS b
     ON e.moe_esi_provider_code = b.moe_pp_provider_code
-    LEFT JOIN [IDI_Metadata_202506].[moe_school].[provider_type_code] c
+    LEFT JOIN [IDI_Metadata_$(REFRESH)].[moe_school].[provider_type_code] AS c
     ON b.moe_pp_provider_type_code = c.ProviderTypeId
+	CROSS JOIN max_date
 ),
--- keep into period of interest
-rank_schoolspells AS(
-
-    SELECT *
-        , ROW_NUMBER() OVER(PARTITION BY snz_uid ORDER BY date_started) AS [RANK]
-    FROM schoolspells
-
-),
-	school_moves AS (
+school_moves AS (
 -- specify whether move was structural OR not.
 	SELECT a.*
     , IIF(a.moe_esi_provider_code!=b.moe_esi_provider_code,1,0) AS any_move
@@ -112,8 +124,8 @@ rank_schoolspells AS(
 			WHEN (a.school_type = 'Teen Parent Unit' OR b.school_type = 'Teen Parent Unit' ) 
 			AND DATEDIFF(DAY, a.date_started, b.date_started) < 7 THEN 1 -- next school is Teen Parent Unit AND they started a new associated school within week of joining TPU
 			ELSE 0 END AS multipurpose_school
-FROM rank_schoolspells AS a
-LEFT JOIN rank_schoolspells AS b
+FROM schoolspells AS a
+LEFT JOIN schoolspells AS b
 ON a.snz_uid = b.snz_uid
 AND a.[RANK]-1 = b.[RANK]
 )

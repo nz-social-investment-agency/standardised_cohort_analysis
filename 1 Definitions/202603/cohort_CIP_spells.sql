@@ -2,7 +2,7 @@
 
 Cohort: Children with incarcerated parents - spells
 
-SIF priority cohort -'Children whowith a parent currently or recently in prison'
+SIF priority cohort -'Children with a parent currently or recently in prison'
 
 The purpose of the spell view is to look at numbers and people in the cohort over time.
 
@@ -30,18 +30,28 @@ Author: Ashleigh Arendt
 Date: 14-11-2024
 
 History:
+2026-04-07 SA update to code module with view
 2025-08-19 CR added spell format
 2025-08-05 DY Correct issues from temporary fix, modified to not exclude parent where the other is NULL, relaxed age restriction to <=17.
 2025-07-09 DY Updated to refer to the rebuilt table for the 202506 refresh
 2025-07-04 DY Updated to refer to the temp fix to the corrections table for the 202506 refresh
+2026-01-12 CF Updated to refer to 202510 refresh
+2026-04-01 CF updated refresh to 202603
 
 
 *****************************************/
 
-DROP VIEW IF EXISTS [DL-MAA2023-46].[defn_cohort_CIP_spells_202506];
+-- :SETVAR PROJECT_DB "SIA_Sandpit"
+-- :SETVAR PROJECT_SCHEMA "DL-MAA2026-04"
+-- :SETVAR REFRESH "202603"
+
+USE IDI_UserCode
 GO
 
-CREATE VIEW [DL-MAA2023-46].[defn_cohort_CIP_spells_202506] AS 
+DROP VIEW IF EXISTS [$(PROJECT_SCHEMA)].[cohort_CIP_spells_$(REFRESH)];
+GO
+
+CREATE VIEW [$(PROJECT_SCHEMA)].[cohort_CIP_spells_$(REFRESH)] AS 
 WITH
 incarcertation AS (
 
@@ -49,7 +59,7 @@ incarcertation AS (
 		, mm_type AS [cor_rommp_directive_type]
 		, [start_date] AS [cor_rommp_period_start_date]
 		, [end_date] AS [cor_rommp_period_end_date]
-	FROM [SIA_Sandpit].[DL-MAA2023-46].[def_COR_major_management_periods_202506] a
+	FROM [IDI_UserCode].[$(PROJECT_SCHEMA)].[defn_corrections_any_$(REFRESH)] AS a
 	WHERE year([start_date]) >= 1996 -- corrections start date is after 1996, but child birth year is from 1984
 	AND mm_type IN ('IMPRISONMENT', 'REMAND') -- See note above
 	AND [start_date] is not null
@@ -65,7 +75,7 @@ parent1 AS (
 	, a.cor_rommp_period_start_date as cohort_start
 	, IIF(DATEADD(YEAR,5,a.cor_rommp_period_end_date) > DATEADD(YEAR, 18, b.snz_birth_date_proxy), DATEADD(YEAR, 18, b.snz_birth_date_proxy) ,DATEADD(YEAR,5,a.cor_rommp_period_end_date)) as cohort_end
 	FROM incarcertation AS a
-	INNER JOIN [IDI_Clean_202506].[data].[personal_detail] AS b
+	INNER JOIN [IDI_Clean_$(REFRESH)].[data].[personal_detail] AS b
 	ON a.snz_uid = b.snz_parent1_uid
 	WHERE snz_parent1_uid IS NOT NULL
 		AND (snz_parent1_uid <> snz_parent2_uid OR snz_parent2_uid IS NULL) -- exclude if parent1 = parent2 -- this means records listing one parent twice will never be included?
@@ -80,7 +90,7 @@ parent2 AS (
 		, a.cor_rommp_period_start_date as cohort_start
 		, IIF(DATEADD(YEAR,5,a.cor_rommp_period_end_date) > DATEADD(YEAR, 18, b.snz_birth_date_proxy), DATEADD(YEAR, 18, b.snz_birth_date_proxy) ,DATEADD(YEAR,5,a.cor_rommp_period_end_date)) as cohort_end
 	FROM incarcertation AS a
-	INNER JOIN [IDI_Clean_202506].[data].[personal_detail] AS b
+	INNER JOIN [IDI_Clean_$(REFRESH)].[data].[personal_detail] AS b
 	ON a.snz_uid = b.snz_parent2_uid
 	WHERE snz_parent2_uid IS NOT NULL
 		AND (snz_parent1_uid <> snz_parent2_uid OR snz_parent1_uid IS NULL)-- exclude if parent1 = parent2

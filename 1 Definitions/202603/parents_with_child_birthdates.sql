@@ -3,9 +3,9 @@ Title: Birth dates of youngest and oldest children for parents
 Author: Simon Anastasiadis
 
 Inputs & Dependencies:
-- [IDI_Clean_202506].[data].[personal_detail]
+- [IDI_Clean_$(REFRESH)].[data].[personal_detail]
 Outputs:
-- [IDI_UserCode].[DL-MAA2023-46].[defn_child_birthdates]
+- [IDI_UserCode].[$(PROJECT_SCHEMA)].[defn_child_birthdates]
 
 Description:
 Date of earliest and latest child's birth
@@ -27,9 +27,9 @@ Notes:
 - Results consistent with, though a little higher than, official birth rates.
 
 Parameters & Present values:
-  Current refresh = 202506
+  Current refresh = $(REFRESH)
   Prefix = defn_
-  Project schema = [DL-MAA2023-46]
+  Project schema = [$(PROJECT_SCHEMA)]
  
 Issues:
  
@@ -37,25 +37,29 @@ History (reverse order):
 2025-06-18 SA version 1
 **************************************************************************************************/
 
+-- :SETVAR PROJECT_DB "SIA_Sandpit"
+-- :SETVAR PROJECT_SCHEMA "DL-MAA2026-04"
+-- :SETVAR REFRESH "202603"
+
 USE IDI_UserCode
 GO
 
-DROP VIEW IF EXISTS [DL-MAA2023-46].[defn_child_birthdates_202506]
+DROP VIEW IF EXISTS [$(PROJECT_SCHEMA)].[defn_child_birthdates_$(REFRESH)]
 GO
 
-CREATE VIEW [DL-MAA2023-46].[defn_child_birthdates_202506] AS
+CREATE VIEW [$(PROJECT_SCHEMA)].[defn_child_birthdates_$(REFRESH)] AS
 WITH parents_and_birthdates AS (
 
 	SELECT snz_parent1_uid AS snz_uid
 		,snz_birth_date_proxy
-	FROM [IDI_Clean_202506].[data].[personal_detail]
+	FROM [IDI_Clean_$(REFRESH)].[data].[personal_detail]
 	WHERE snz_parent1_uid IS NOT NULL
 
 	UNION ALL
 
 	SELECT snz_parent2_uid AS snz_uid
 		,snz_birth_date_proxy
-	FROM [IDI_Clean_202506].[data].[personal_detail]
+	FROM [IDI_Clean_$(REFRESH)].[data].[personal_detail]
 	WHERE snz_parent2_uid IS NOT NULL
 	AND snz_parent1_uid <> snz_parent2_uid
 
@@ -71,8 +75,8 @@ GO
 /*
 -- calculate number of children per parent for NZ residents
 SELECT num_children, COUNT(*) AS num_parents
-FROM [DL-MAA2023-46].[defn_child_birthdates]
-WHERE snz_uid IN (SELECT snz_uid FROM [IDI_Clean_202506].[data].[snz_res_pop] WHERE YEAR(srp_ref_date) >= 2020)
+FROM [$(PROJECT_SCHEMA)].[defn_child_birthdates]
+WHERE snz_uid IN (SELECT snz_uid FROM [IDI_Clean_$(REFRESH)].[data].[snz_res_pop] WHERE YEAR(srp_ref_date) >= 2020)
 GROUP BY num_children
 ORDER BY num_children
 */

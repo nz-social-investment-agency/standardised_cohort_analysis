@@ -3,9 +3,10 @@ Title: Attendance Service Support
 Author: Lexi XU
 
 Inputs & Dependencies:
-	[IDI_Clean_202506].[moe_clean].[student_interventions]
-	[IDI_Clean_202506].[moe_clean].[student_enrol]
-	[IDI_Metadata_202506].[moe_school].[intervention_type_code]
+	[IDI_Clean_$(REFRESH)].[moe_clean].[student_interventions]
+	[IDI_Clean_$(REFRESH)].[moe_clean].[student_enrol]
+	[IDI_Metadata_$(REFRESH)].[moe_school].[intervention_type_code]
+	max_date MOE student_interventions.sql >> [IDI_UserCode].[$(PROJECT_SCHEMA)].[max_date_MOE_student_interventions]
 
 Description: 
 -- This view identifies students who referred to the attendence service for truancy (code 32) or non-enrollment (code 9)
@@ -31,33 +32,43 @@ Note:
 
 
 Parameters & Present values:
-  Current refresh = 202506
-  Project schema = [DL-MAA2023-46]
+  Current refresh = $(REFRESH)
+  Project schema = [$(PROJECT_SCHEMA)]
 
 History (reverse order):
+2026-04-01 CF updates refresh to 202603
+2025-11-06 SA cap open spells with max_date
 2025-06-19 LX v1
 2025-06-23 LX & SA update with improved end dates
 **************************************************************************************************/
 
+-- :SETVAR PROJECT_DB "SIA_Sandpit"
+-- :SETVAR PROJECT_SCHEMA "DL-MAA2026-04"
+-- :SETVAR REFRESH "202603"
 
 USE IDI_UserCode
 GO
 
-DROP VIEW IF EXISTS [DL-MAA2023-46].[defn_attendance_service_support_202506] 
+DROP VIEW IF EXISTS [$(PROJECT_SCHEMA)].[defn_attendance_service_support_$(REFRESH)] 
 GO
 
-CREATE VIEW [DL-MAA2023-46].[defn_attendance_service_support_202506] AS 
-WITH student_intervention_setup AS (
+CREATE VIEW [$(PROJECT_SCHEMA)].[defn_attendance_service_support_$(REFRESH)] AS 
+WITH max_date AS (
+	SELECT TOP 1 max_date
+	FROM [IDI_UserCode].[$(PROJECT_SCHEMA)].[max_date_MOE_student_interventions_$(REFRESH)]
+),
+student_intervention_setup AS (
 	SELECT snz_uid
 		,[moe_inv_intrvtn_code]
 		,[moe_inv_start_date]
 		,CASE -- all reference dates become today's date
-			WHEN [moe_inv_end_date] IS NULL THEN GETDATE()
-			WHEN YEAR([moe_inv_end_date]) = 1900 THEN GETDATE()
-			WHEN YEAR([moe_inv_end_date]) = 9999 THEN GETDATE()
+			WHEN [moe_inv_end_date] IS NULL THEN max_date
+			WHEN YEAR([moe_inv_end_date]) = 1900 THEN max_date
+			WHEN [moe_inv_end_date] > max_date THEN max_date
 			ELSE [moe_inv_end_date]
 			END AS [moe_inv_end_date]
-	FROM [IDI_Clean_202506].[moe_clean].[student_interventions]
+	FROM [IDI_Clean_$(REFRESH)].[moe_clean].[student_interventions]
+	CROSS JOIN max_date
 	WHERE YEAR([moe_inv_start_date]) <> 1900
 	-- exclude records with inconsistent end dates (effects <200 records, <0.1% of records)
 	AND (
@@ -77,10 +88,10 @@ SELECT
 FROM 
 	student_intervention_setup AS si
 INNER JOIN 
-	[IDI_Metadata_202506].[moe_school].[intervention_type_code] AS t 
+	[IDI_Metadata_$(REFRESH)].[moe_school].[intervention_type_code] AS t 
 	ON t.InterventionID = si.moe_inv_intrvtn_code
 LEFT JOIN      -- Including unenrolled student
-	[IDI_Clean_202506].[moe_clean].[student_enrol] AS e
+	[IDI_Clean_$(REFRESH)].[moe_clean].[student_enrol] AS e
 	ON si.snz_uid = e.snz_uid
 	AND e.moe_esi_start_date <= si.moe_inv_end_date
 	AND si.moe_inv_start_date <= e.moe_esi_end_date

@@ -4,9 +4,9 @@ Author: Simon Anastasiadis
 Edited by Dan Young & Charlotte Rose
 
 Inputs & Dependencies:
-- [IDI_Clean_202506].[moe_clean].[ece_student_attendance]
+- [IDI_Clean_$(REFRESH)].[moe_clean].[ece_student_attendance]
 Outputs:
-- [SIA_Sandpit].[DL-MAA2023-55].[defn_ece_attendance]
+- [$(PROJECT_DB)].[DL-MAA2023-55].[defn_ece_attendance]
 
 Description:
 Recorded attendance at an ECE centre
@@ -32,9 +32,9 @@ Notes:
 7) As per 4) and 6) this has not been reconciled and will be caveated as above
 
 Parameters & Present values:
-  Current refresh = 202506
+  Current refresh = $(REFRESH)
   Prefix = defn_
-  Project schema = [DL-MAA2023-46]
+  Project schema = [$(PROJECT_SCHEMA)]
   Earliest start date = '2018-01-01'
 
 Issues:
@@ -47,22 +47,23 @@ History (reverse order):
 2020-05-25 SA v1
 **************************************************************************************************/
 
+--:SETVAR PROJECT_DB "SIA_Sandpit"
+--:SETVAR PROJECT_SCHEMA "DL-MAA2026-04"
+--:SETVAR REFRESH "202603"
+
 
 USE IDI_UserCode
 GO
 
-DROP VIEW IF EXISTS [DL-MAA2023-46].[defn_ECE_attendance_202506]
+DROP VIEW IF EXISTS [$(PROJECT_SCHEMA)].[defn_ECE_attendance_$(REFRESH)]
 GO
 
-CREATE VIEW [DL-MAA2023-46].[defn_ECE_attendance_202506] AS
+CREATE VIEW [$(PROJECT_SCHEMA)].[defn_ECE_attendance_$(REFRESH)] AS
 SELECT a.[snz_uid]
-    , a.[snz_moe_uid]
+    --, a.[snz_moe_uid]
     , a.[moe_esa_provider_code] AS [ProviderNumber]
     , a.[moe_esa_attendance_date] AS [AttendanceDate]
-    , a.[moe_esa_provider_code]
-    , COALESCE(a.[moe_esa_duration],0) AS Duration
-FROM [IDI_Clean_202506].[moe_clean].[ece_student_attendance] a
-WHERE [moe_esa_ece_attendance_code] = 'PRESENT'
+    , COALESCE(a.duration_mins,0) AS Duration
+	, a.[moe_esa_provider_code]
+FROM [$(PROJECT_DB)].[$(PROJECT_SCHEMA)].[defn_ECE_clean_$(REFRESH)] AS a
 GO
-
-

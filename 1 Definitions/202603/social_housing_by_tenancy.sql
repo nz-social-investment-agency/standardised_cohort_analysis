@@ -28,7 +28,7 @@ Inputs & Dependencies:
 - [IDI_Clean].[hnz_clean].[new_applications_household]
 - [IDI_Clean].[hnz_clean].[tenancy_household_snapshot]
 Outputs:
-- [IDI_UserCode].[DL-MAA2023-46].[defn_hnz_tenancy_202506]
+- [IDI_UserCode].[$(PROJECT_SCHEMA)].[defn_hnz_tenancy_$(REFRESH)]
 
 
 Notes:
@@ -42,9 +42,9 @@ Notes:
 2) Similar patterns are observed for the household identities.
 
 Parameters & Present values:
-  Current refresh = 202506
+  Current refresh = $(REFRESH)
   Prefix = _
-  Project schema = DL-MAA2023-46
+  Project schema = $(PROJECT_SCHEMA)
  
 Issues:
 1) Performance may be poor using all three of these as Views. Converting to indexed Tables
@@ -60,21 +60,25 @@ History (reverse order):
 2019-04-01 SA Initiated
 **************************************************************************************************/
 
+-- :SETVAR PROJECT_DB "SIA_Sandpit"
+-- :SETVAR PROJECT_SCHEMA "DL-MAA2026-04"
+-- :SETVAR REFRESH "202603"
+
 /*embedded in user code*/
 USE IDI_UserCode
 GO
 
 /* Social housing tenancy */
-DROP VIEW IF EXISTS [DL-MAA2023-46].[defn_hnz_tenancy_202506]
+DROP VIEW IF EXISTS [$(PROJECT_SCHEMA)].[defn_hnz_tenancy_$(REFRESH)]
 GO
 
-CREATE VIEW [DL-MAA2023-46].[defn_hnz_tenancy_202506] AS
+CREATE VIEW [$(PROJECT_SCHEMA)].[defn_hnz_tenancy_$(REFRESH)] AS
 SELECT a.[snz_uid]
-      ,a.[hnz_ths_snapshot_date] AS [start_date]
-	  ,b.[hnz_ths_snapshot_date] AS [end_date]
+      ,CAST(a.[hnz_ths_snapshot_date] AS DATE) AS [start_date]
+	  ,CAST(b.[hnz_ths_snapshot_date] AS DATE) AS [end_date]
 	  ,'HNZ tenant' AS [description]
-FROM  [IDI_Clean_202506].[hnz_clean].[tenancy_household_snapshot] a
-INNER JOIN  [IDI_Clean_202506].[hnz_clean].[tenancy_household_snapshot] b
+FROM  [IDI_Clean_$(REFRESH)].[hnz_clean].[tenancy_household_snapshot] a
+INNER JOIN  [IDI_Clean_$(REFRESH)].[hnz_clean].[tenancy_household_snapshot] b
 ON a.snz_uid = b.snz_uid
 WHERE DATEDIFF(DAY, a.[hnz_ths_snapshot_date], b.[hnz_ths_snapshot_date]) >= 20 -- snapshots are 20-40 days apart
 AND DATEDIFF(DAY, a.[hnz_ths_snapshot_date], b.[hnz_ths_snapshot_date]) <= 40

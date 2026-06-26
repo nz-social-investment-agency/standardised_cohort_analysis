@@ -17,8 +17,8 @@ stopifnot(!is.null(params$model_matched))
 ```{r calculations, echo = FALSE}
 
 model_summary = summary(params$model_matched, un = FALSE)
-balance_summary = as.data.frame(model_summary$sum.matched)
-
+balance_summary = as.data.frame(model_summary$sum.matched) |>
+  dplyr::mutate(across(where(is.numeric), ~signif(.x, 3)))
 ```
 
 ## Predictive model summary
@@ -72,16 +72,18 @@ Distribution of predicted probabilities prior to matching
 ```{r prior_density, echo = FALSE}
 plot_data = dplyr::mutate(params$df, treat_control_other = ifelse(treat_control_other == "other", "control", treat_control_other))
 ggplot2::ggplot(data = plot_data)+
-  ggplot2::geom_density(ggplot2::aes(x = predicted_prob, colour = treat_control_other)) +
+  ggplot2::geom_density(ggplot2::aes(x = predicted_prob, colour = treat_control_other), na.rm = TRUE) +
   ggplot2::scale_y_sqrt()
 ```
 
 Distribution of predicted probabilities after matching
 
+If this plot does not show any lines then logit has likely failed.
+
 ```{r after_density, echo = FALSE}
 plot_data = dplyr::filter(params$df, treat_control_other != "other")
 ggplot2::ggplot(data = plot_data) +
-  ggplot2::geom_density(ggplot2::aes(x = predicted_prob, colour = treat_control_other)) +
+  ggplot2::geom_density(ggplot2::aes(x = predicted_prob, colour = treat_control_other), na.rm = TRUE) +
   ggplot2::scale_y_sqrt()
 ```
 
@@ -108,33 +110,39 @@ the description of the population.
 Unmatched attributes
 
 ```{r love_data_1, echo = FALSE}
-balance_summary |>
+tmp = balance_summary |>
   dplyr::filter(abs(`Std. Mean Diff.`) > 0.2) |>
   dplyr::arrange(-abs(`Std. Mean Diff.`)) |>
-  dplyr::select('Means Treated', 'Means Control', 'Std. Mean Diff.', 'Var. Ratio', 'Std. Pair Dist.') |>
-  print()
+  dplyr::select('Means Treated', 'Means Control', 'Std. Mean Diff.', 'Var. Ratio')
+
+glue::glue("Number of unmatched attributes: {nrow(tmp)}.") |> print()
+tmp |> print()
 ```
 
 Poor match attributes
 
 ```{r love_data_2, echo = FALSE}
-balance_summary |>
+tmp = balance_summary |>
   dplyr::filter(
     abs(`Std. Mean Diff.`) <= 0.2,
     abs(`Std. Mean Diff.`) > 0.1
   ) |>
   dplyr::arrange(-abs(`Std. Mean Diff.`)) |>
-  dplyr::select('Means Treated', 'Means Control', 'Std. Mean Diff.', 'Var. Ratio', 'Std. Pair Dist.') |>
-  print()
+  dplyr::select('Means Treated', 'Means Control', 'Std. Mean Diff.', 'Var. Ratio')
+
+glue::glue("Number of poorly matched attributes: {nrow(tmp)}.") |> print()
+tmp |> print()
 ```
 
 Good match attributes
 
 ```{r love_data_3, echo = FALSE}
-balance_summary |>
+tmp = balance_summary |>
   dplyr::filter(abs(`Std. Mean Diff.`) <= 0.1) |>
   dplyr::arrange(-abs(`Std. Mean Diff.`)) |>
-  dplyr::select('Means Treated', 'Means Control', 'Std. Mean Diff.', 'Var. Ratio', 'Std. Pair Dist.') |>
-  print()
+  dplyr::select('Means Treated', 'Means Control', 'Std. Mean Diff.', 'Var. Ratio')
+
+glue::glue("Number of well matched attributes: {nrow(tmp)}.") |> print()
+tmp |> print()
 ```
 

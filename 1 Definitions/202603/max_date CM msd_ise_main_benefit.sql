@@ -17,30 +17,42 @@ view to the master table. This is likely due to how the base data is indexed (in
 Hence we have converted this script and several like it to sandpit tables for performance.
 */
 
-DROP TABLE IF EXISTS [SIA_Sandpit].[DL-MAA2023-46].[max_date_CM_msd_ise_main_benefit_202506]
+-- :SETVAR PROJECT_DB "SIA_Sandpit"
+-- :SETVAR PROJECT_SCHEMA "DL-MAA2026-04"
+-- :SETVAR REFRESH "202603"
+
+DROP TABLE IF EXISTS [$(PROJECT_DB)].[$(PROJECT_SCHEMA)].[max_date_CM_msd_ise_main_benefit_$(REFRESH)]
 GO
 
 WITH uid_list AS (
 
 	SELECT DISTINCT snz_uid
-	FROM [IDI_Clean_202506].[data].[personal_detail]
+	FROM [IDI_Clean_$(REFRESH)].[data].[personal_detail]
 
 ),
 count_each_date AS (
 
 	SELECT CAST([payment_start] AS DATE) AS the_date
 		, COUNT(*) AS num
-	FROM [IDI_Community].[inc_ise_main_benefit].[ise_main_benefit_202506]
+	FROM [IDI_Community].[inc_ise_main_benefit].[ise_main_benefit_$(REFRESH)]
 	WHERE [payment_start] BETWEEN DATEADD(YEAR, -5, GETDATE()) AND GETDATE() -- events between now and five years ago
 	GROUP BY CAST([payment_start] AS DATE) -- remove times if DATETIME
+
+),
+rolling_average AS (
+	
+	SELECT *
+		,AVG(num) OVER (ORDER BY the_date ROWS BETWEEN 6 PRECEDING AND CURRENT ROW) AS rolling7dayavg
+	FROM count_each_date
 
 ),
 threshold_calculation AS (
 
 	SELECT the_date
 		,num
-		,0.2 * PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY num) OVER () AS threshold
-	FROM count_each_date
+		,rolling7dayavg
+		,0.2 * PERCENTILE_CONT(0.25) WITHIN GROUP (ORDER BY rolling7dayavg) OVER () AS threshold
+	FROM rolling_average
 
 ),
 max_date AS (
@@ -51,10 +63,14 @@ max_date AS (
 
 )
 SELECT snz_uid, max_date
-INTO [SIA_Sandpit].[DL-MAA2023-46].[max_date_CM_msd_ise_main_benefit_202506]
+INTO [$(PROJECT_DB)].[$(PROJECT_SCHEMA)].[max_date_CM_msd_ise_main_benefit_$(REFRESH)]
 FROM uid_list
 	,max_date
 GO
 
-CREATE NONCLUSTERED INDEX i_uid ON [SIA_Sandpit].[DL-MAA2023-46].[max_date_CM_msd_ise_main_benefit_202506] (snz_uid) INCLUDE (max_date)
+-- Compression
+EXEC [IDI_UserCode].[$(PROJECT_SCHEMA)].[compress_table_$(PROJECT_DB)] @table = '[$(PROJECT_DB)].[$(PROJECT_SCHEMA)].[max_date_CM_msd_ise_main_benefit_$(REFRESH)]'
+GO
+
+CREATE NONCLUSTERED INDEX i_uid ON [$(PROJECT_DB)].[$(PROJECT_SCHEMA)].[max_date_CM_msd_ise_main_benefit_$(REFRESH)] (snz_uid) INCLUDE (max_date)
 GO

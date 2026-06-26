@@ -4,10 +4,11 @@ Author: Charlotte Rose
 Peer review: Simon Anastasiadis
 
 Inputs & Dependencies:
-- [IDI_Clean_202506].[moe_clean].[student_interventions] 
-- [IDI_Metadata_202506].[moe_school].[intervention_type_code]
-- [IDI_Metadata_202506].[moe_school].[sds_type_code]
-- [IDI_Clean_202506].[moe_clean].[student_enrol]
+- [IDI_Clean_$(REFRESH)].[moe_clean].[student_interventions] 
+- [IDI_Metadata_$(REFRESH)].[moe_school].[intervention_type_code]
+- [IDI_Metadata_$(REFRESH)].[moe_school].[sds_type_code]
+- [IDI_Clean_$(REFRESH)].[moe_clean].[student_enrol]
+- max_date MOE student_interventions.sql >> [IDI_UserCode].[$(PROJECT_SCHEMA)].[max_date_MOE_student_interventions]
 
 Description: 
 Identifies stand down, suspension, exclusion and expulsion events. These events mean a child is not allowed at school usually due to rule breaking
@@ -28,39 +29,60 @@ Notes:
 
 
 Parameters & Present values:
-  Current refresh = 202506
-  Project schema = [DL-MAA2023-46]
+  Current refresh = $(REFRESH)
+  Project schema = [$(PROJECT_SCHEMA)]
  
 Issues:
  
 History (reverse order):
+2025-11-06 SA cap open spells with max_date
 2025-06-12 CR
 **************************************************************************************************/
+
+-- :SETVAR PROJECT_DB "SIA_Sandpit"
+-- :SETVAR PROJECT_SCHEMA "DL-MAA2026-04"
+-- :SETVAR REFRESH "202603"
 
 USE IDI_UserCode
 GO
 
-DROP VIEW IF EXISTS [DL-MAA2023-46].[defn_SSEE_w_flag_202506]
+DROP VIEW IF EXISTS [$(PROJECT_SCHEMA)].[defn_SSEE_w_flag_$(REFRESH)]
 GO
 
-CREATE VIEW [DL-MAA2023-46].[defn_SSEE_w_flag_202506] AS
+CREATE VIEW [$(PROJECT_SCHEMA)].[defn_SSEE_w_flag_$(REFRESH)] AS
+WITH max_date AS (
+	SELECT TOP 1 max_date
+	FROM [IDI_UserCode].[$(PROJECT_SCHEMA)].[max_date_MOE_student_interventions_$(REFRESH)]
+)
 SELECT DISTINCT i.snz_uid
 	,i.moe_inv_start_date
-	,i.moe_inv_end_date
+	,i.moe_inv_end_date AS raw_moe_inv_end_date
+	,CASE -- all reference dates become max-date
+			WHEN [moe_inv_end_date] IS NULL THEN max_date
+			WHEN YEAR([moe_inv_end_date]) = 1900 THEN max_date
+			WHEN [moe_inv_end_date] > max_date THEN max_date
+			ELSE [moe_inv_end_date]
+			END AS [moe_inv_end_date]
 	,i.moe_inv_intrvtn_code
 	,t.InterventionName
 	,IIF(i.moe_inv_intrvtn_code = 8, 1, NULL) AS standdown_flag
 	,IIF(i.moe_inv_intrvtn_code = 7, 1, NULL) AS suspension_flag
 	,IIF(i.moe_inv_intrvtn_code = 7 AND s.sDSTypeCode IN (13,5,6,7),1,NULL) AS exp_flag -- expulsion or exclusion
-	,e.moe_esi_provider_code
-FROM [IDI_Clean_202506].[moe_clean].[student_interventions] i
-INNER JOIN [IDI_Metadata_202506].[moe_school].[intervention_type_code] t
+	,i.moe_inv_inst_num_code as moe_esi_provider_code
+FROM [IDI_Clean_$(REFRESH)].[moe_clean].[student_interventions] i
+INNER JOIN [IDI_Metadata_$(REFRESH)].[moe_school].[intervention_type_code] t
 ON t.InterventionID = i.moe_inv_intrvtn_code
-LEFT JOIN [IDI_Metadata_202506].[moe_school].[sds_type_code] s
+LEFT JOIN [IDI_Metadata_$(REFRESH)].[moe_school].[sds_type_code] s
 ON s.SDSTypeCode = i.moe_inv_standwn_susp_type_code
-INNER JOIN [IDI_Clean_202506].[moe_clean].[student_enrol] e
-ON e.snz_uid = i.snz_uid
-AND e.moe_esi_start_date < i.[moe_inv_end_date]
-AND i.[moe_inv_start_date] < e.moe_esi_end_date
+CROSS JOIN max_date
 WHERE i.moe_inv_intrvtn_code IN (7,8)
+AND YEAR([moe_inv_start_date]) <> 1900
+-- exclude records with inconsistent end dates (effects <200 records, <0.1% of records)
+AND (
+	YEAR([moe_inv_end_date]) < 9999
+	OR (YEAR([moe_inv_start_date]) > 2020 AND YEAR([moe_inv_end_date]) = 9999)
+	OR (YEAR([moe_inv_start_date]) > 2020 AND [moe_inv_end_date] IS NULL)
+)
 GO
+
+

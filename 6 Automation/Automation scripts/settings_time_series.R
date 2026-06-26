@@ -10,60 +10,52 @@
 # Injection inputs
 # > BASE_FOLDER
 # > COHORT
-# If running this file manually, you will need to set these
-# Avoid setting these in this code as it prevents correct pipeline execution
+# > REFRESH
+# If running this file manually, you will need to set these.
+# Avoid setting these in this code as it prevents correct pipeline execution.
 ################################################################################
 
 ## Confirm required variables --------------------------------------------- ----
 
 stopifnot(exists("BASE_FOLDER"))
 stopifnot(exists("COHORT"))
+stopifnot(exists("REFRESH"))
 
-settings_file = "{BASE_FOLDER}/2 Analysis/{COHORT}/Execution/in_progress_settings.RDS"
+settings_file = glue::glue("{BASE_FOLDER}/2 Analysis/{COHORT}/{REFRESH}/Execution/in_progress_settings.RDS")
+
+## load project settings -------------------------------------------------- ----
+
+settings = readRDS(file.path(BASE_FOLDER, "6 Automation", "pipeline_settings.RDS"))
+
+PREFIX = settings$PREFIX
+PROJECT_DB = settings$PROJECT_DB
+PROJECT_SCHEMA = settings$PROJECT_SCHEMA
+db_connection_string = settings$db_connection_string
 
 ## inputs ----------------------------------------------------------------- ----
 
-phase = "time series"
-
 # universal
-control_file_path = "{BASE_FOLDER}/2 Analysis/{COHORT}/Execution/control_file - time_series.xlsx"
-sql_folder = "{BASE_FOLDER}/1 Definitions"
+phase = "time series"
+control_file_path = "{BASE_FOLDER}/2 Analysis/{COHORT}/{REFRESH}/Execution/control_file - time_series - {COHORT}_{REFRESH}.xlsx"
 
 # assembly
 assembly_sheet = "assembly"
-assembly_master_table = "[SIA_Sandpit].[DL-MAA2023-46].[{COHORT}_time_series_master_table]"
+assembly_master_table = "[{PROJECT_DB}].[{PROJECT_SCHEMA}].[{PREFIX}{COHORT}_time_series_master_table_{REFRESH}]"
 
 # summary
 summary_sheet = "summary"
-summary_master_table = "[IDI_UserCode].[DL-MAA2023-46].[{COHORT}_time_series_master_table]"
+summary_master_table = "[IDI_UserCode].[{PROJECT_SCHEMA}].[{PREFIX}{COHORT}_time_series_master_table_{REFRESH}]"
 
 # confidentialise & submission
 confidentialise_sheet = "conf_RR3"
-raw_summary_file = "{BASE_FOLDER}/2 Analysis/{COHORT}/Output/{COHORT}_time_series.csv"
-conf_summary_file = "{BASE_FOLDER}/2 Analysis/{COHORT}/Output/{COHORT}_time_series_conf.csv"
+raw_summary_file = "{BASE_FOLDER}/2 Analysis/{COHORT}/{REFRESH}/Output/{COHORT}_time_series.csv"
+conf_summary_file = "{BASE_FOLDER}/2 Analysis/{COHORT}/{REFRESH}/Output/{COHORT}_time_series_conf.csv"
 
-raw_for_submission_file = "{BASE_FOLDER}/4 For submission/{toupper(COHORT)}_time_series RAW.csv"
-conf_for_submission_file = "{BASE_FOLDER}/4 For submission/{toupper(COHORT)}_time_series CONF.csv"
+raw_for_submission_file = "{BASE_FOLDER}/4 For submission/RAW {toupper(COHORT)}_time_series {REFRESH}.csv"
+conf_for_submission_file = "{BASE_FOLDER}/4 For submission/CONF {toupper(COHORT)}_time_series {REFRESH}.csv"
 
 # metadata
-client_table = "[SIA_Sandpit].[DL-MAA2023-46].[{COHORT}_client]"
-
-## database connection ---------------------------------------------------- ----
-
-# database connection - requires SQL Server in environment
-db_connection_string = "DRIVER=ODBC Driver 18 for SQL Server; Trusted_Connection=Yes; TrustServerCertificate=Yes;"
-db_connection_string = paste(db_connection_string, "DATABASE=IDI_Clean_202410;")
-db_connection_string = paste(db_connection_string, "SERVER=PRTPRDSQL36, 1433")
-
-## copy control file if it does not exist --------------------------------- ----
-
-control_file_path = glue::glue(control_file_path)
-if(!file.exists(control_file_path)){
-  
-  control_file_source = file.path(BASE_FOLDER, "6 Automation", "Control files", "control_file - time_series.xlsx")
-  file.copy(control_file_source, control_file_path)
-  
-}
+client_table = "[{PROJECT_DB}].[{PROJECT_SCHEMA}].[{PREFIX}{COHORT}_client_{REFRESH}]"
 
 ## write out settings ----------------------------------------------------- ----
 
@@ -71,7 +63,6 @@ settings = list(
   phase = phase,
   # universal
   control_file_path = glue::glue(control_file_path),
-  sql_folder = glue::glue(sql_folder),
   db_connection_string = db_connection_string,
   # assembly
   assembly_sheet = glue::glue(assembly_sheet),

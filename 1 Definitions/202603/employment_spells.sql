@@ -7,7 +7,7 @@ Reviewer: Simon Anastasiadis
 Inputs & Dependencies:
 - [IDI_Clean].[ir_clean].[ird_ems]
 Outputs:
-- [SIA_Sandpit].[DL-MAA2023-46].[defn_employed_spell]
+- [$(PROJECT_DB)].[$(PROJECT_SCHEMA)].[defn_employed_spell]
 
 Description:
 A spell where wages or salaries are reported to IRD as evidence of employment.
@@ -16,7 +16,7 @@ Intended purpose:
 Creating indicators of when/whether a person was employed.
 Identifying spells when a person is employed.
 Counting the number of days a person spends employed.
- 
+
 Notes:
 1) Employer Monthly Summaries (EMS) records provide an indication that a person was employed
    during a specific month. Where start or end dates are provided, these are used so long
@@ -56,11 +56,11 @@ Notes:
 	any count of entities will be more conservative than the true value.
 
 Parameters & Present values:
-  Current refresh = 202506
+  Current refresh = $(REFRESH)
   Prefix = defn_
-  Project schema = [DL-MAA2023-46]
+  Project schema = [$(PROJECT_SCHEMA)]
   Earliest start date = '2015-01-01'
-  Latest end date = '2024-12-31'
+  Latest end date = '2025-12-31'
  
 Issues:
 - Does not capture all self-employment. Use of annual tax year data is recommended for analyses at
@@ -68,6 +68,7 @@ Issues:
 - Slow. For years 2014-2020 runtime more than 2 hours
  
 History (reverse order):
+2026-01-12 CF update to the latest refresh & updated end date to include 2025
 2025-05-09 SA update for test and learns
 2021-01-26 SA QA
 2021-01-11 FL v2 (Change prefix and update the table to the latest refresh)
@@ -76,16 +77,20 @@ History (reverse order):
 2020-03-02 SA v1
 **************************************************************************************************/
 
+-- :SETVAR PROJECT_DB "SIA_Sandpit"
+-- :SETVAR PROJECT_SCHEMA "DL-MAA2026-04"
+-- :SETVAR REFRESH "202603"
+
 /* Set database for writing views */
 USE IDI_UserCode
 GO
 
 /* Clear existing view */
-DROP VIEW IF EXISTS [DL-MAA2023-46].[defn_employed_spell_staging_202506]
+DROP VIEW IF EXISTS [$(PROJECT_SCHEMA)].[defn_employed_spell_staging_$(REFRESH)]
 GO
 
 /* Create staging */
-CREATE VIEW [DL-MAA2023-46].[defn_employed_spell_staging_202506] AS
+CREATE VIEW [$(PROJECT_SCHEMA)].[defn_employed_spell_staging_$(REFRESH)] AS
 SELECT snz_uid
 	,CASE
 		WHEN [ir_ems_employee_start_date] IS NOT NULL
@@ -102,27 +107,27 @@ SELECT snz_uid
 		ELSE [ir_ems_return_period_date] END AS [end_date]
 	,CAST(SUBSTRING([ir_ems_enterprise_nbr], 3, LEN([ir_ems_enterprise_nbr]) - 2) AS INT) AS [ir_ems_enterprise_nbr]
 	,CAST(SUBSTRING([ir_ems_pbn_nbr], 3, LEN([ir_ems_pbn_nbr]) - 2) AS INT) AS [ir_ems_pbn_nbr]
-FROM [IDI_Clean_202506].[ir_clean].[ird_ems]
+FROM [IDI_Clean_$(REFRESH)].[ir_clean].[ird_ems]
 WHERE [ir_ems_income_source_code] IN ('W&S', 'WHP') -- employment income types
 AND [snz_ird_uid] > 0 -- exclude placeholder person without IRD number
 AND ir_ems_gross_earnings_amt > 0 -- zero and negative earnings may be just administrative records
 AND ir_ems_snz_unique_nbr = 1
-AND [ir_ems_return_period_date] BETWEEN '2015-01-01' AND '2024-12-31'
+AND [ir_ems_return_period_date] BETWEEN '2015-01-01' AND '2025-12-31'
 GO
 
 /* Condensed spells */
-DROP TABLE IF EXISTS [SIA_Sandpit].[DL-MAA2023-46].[defn_employed_spell_202506]
+DROP TABLE IF EXISTS [$(PROJECT_DB)].[$(PROJECT_SCHEMA)].[defn_employed_spell_$(REFRESH)]
 GO
 
 WITH
 /* exclude start dates that are within another spell */
 spell_starts AS (
 	SELECT [snz_uid], [start_date], [ir_ems_enterprise_nbr], [ir_ems_pbn_nbr]
-	FROM [IDI_UserCode].[DL-MAA2023-46].[defn_employed_spell_staging_202506] AS s1
+	FROM [IDI_UserCode].[$(PROJECT_SCHEMA)].[defn_employed_spell_staging_$(REFRESH)] AS s1
 	WHERE [start_date] <= [end_date]
 	AND NOT EXISTS (
 		SELECT 1
-		FROM [IDI_UserCode].[DL-MAA2023-46].[defn_employed_spell_staging_202506] AS s2
+		FROM [IDI_UserCode].[$(PROJECT_SCHEMA)].[defn_employed_spell_staging_$(REFRESH)] AS s2
 		WHERE s1.snz_uid = s2.snz_uid
 		AND DATEADD(DAY, -1, s1.[start_date]) BETWEEN s2.[start_date] AND s2.[end_date]
 	)
@@ -130,11 +135,11 @@ spell_starts AS (
 /* exclude end dates that are within another spell */
 spell_ends AS (
 	SELECT [snz_uid], [end_date]
-	FROM [IDI_UserCode].[DL-MAA2023-46].[defn_employed_spell_staging_202506] AS t1
+	FROM [IDI_UserCode].[$(PROJECT_SCHEMA)].[defn_employed_spell_staging_$(REFRESH)] AS t1
 	WHERE [start_date] <= [end_date]
 	AND NOT EXISTS (
 		SELECT 1 
-		FROM [IDI_UserCode].[DL-MAA2023-46].[defn_employed_spell_staging_202506] AS t2
+		FROM [IDI_UserCode].[$(PROJECT_SCHEMA)].[defn_employed_spell_staging_$(REFRESH)] AS t2
 		WHERE t2.snz_uid = t1.snz_uid
 		AND YEAR(t1.[end_date]) <> 9999
 		AND DATEADD(DAY, 1, t1.[end_date]) BETWEEN t2.[start_date] AND t2.[end_date]
@@ -146,7 +151,7 @@ SELECT s.snz_uid
 	, s.[ir_ems_enterprise_nbr] -- entity IDs are drawn from initial employer
 	, s.[ir_ems_pbn_nbr]        -- so entity counts will be (very) conservative
 	, MIN(e.[end_date]) as [end_date]
-INTO [SIA_Sandpit].[DL-MAA2023-46].[defn_employed_spell_202506]
+INTO [$(PROJECT_DB)].[$(PROJECT_SCHEMA)].[defn_employed_spell_$(REFRESH)]
 FROM spell_starts s
 INNER JOIN spell_ends e
 ON s.snz_uid = e.snz_uid
@@ -154,11 +159,15 @@ AND s.[start_date] <= e.[end_date]
 GROUP BY s.snz_uid, s.[start_date], s.[ir_ems_enterprise_nbr], s.[ir_ems_pbn_nbr]
 GO
 
+-- Compression
+EXEC [IDI_UserCode].[$(PROJECT_SCHEMA)].[compress_table_$(PROJECT_DB)] @table = '[$(PROJECT_DB)].[$(PROJECT_SCHEMA)].[defn_employed_spell_$(REFRESH)]'
+GO
+
 /* Add index */
-CREATE NONCLUSTERED INDEX my_index_name ON [SIA_Sandpit].[DL-MAA2023-46].[defn_employed_spell_202506] (snz_uid)
+CREATE NONCLUSTERED INDEX my_index_name ON [$(PROJECT_DB)].[$(PROJECT_SCHEMA)].[defn_employed_spell_$(REFRESH)] (snz_uid)
 GO
 
 /* Clear staging view */
-DROP VIEW IF EXISTS [DL-MAA2023-46].[defn_employed_spell_staging_202506]
+DROP VIEW IF EXISTS [$(PROJECT_SCHEMA)].[defn_employed_spell_staging_$(REFRESH)]
 GO
 

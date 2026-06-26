@@ -38,13 +38,43 @@ There are additional codes, on top of those below. The main ones of these are RE
 administrative code either for caregivers who do not fit other categories, or to pay pocket money directly to rangatahi) and DPCY (detention 
 in police custody - short term, generally less than 24 hours).
 
-We get slightly under 63k people after these exclusions.
+------UPDATE------
+
+March 2026 - We have replaced our definition from the cyf_placements table with the Oranga Tamriki Placement spells code module to align with their deifnition of 'care'
+
+This reducds the size of our cohort by about 14% for 202603 refresh
+
+
 ***/
 
-/* Parent index for joining */
+-- :SETVAR PROJECT_DB "SIA_Sandpit"
+-- :SETVAR PROJECT_SCHEMA "DL-MAA2026-04"
+-- :SETVAR REFRESH "202603"
+
+USE IDI_USERCODE;
+GO
+
+DROP VIEW IF EXISTS [$(PROJECT_SCHEMA)].[care_experienced];
+GO
+
+CREATE VIEW [$(PROJECT_SCHEMA)].[care_experienced] AS
+SELECT a.snz_uid
+	, MIN(a.from_date) AS first_placement_date
+	, snz_birth_year_nbr
+	, snz_sex_gender_code
+FROM [IDI_Community].[chld_placement_spell].[placement_spell_$(REFRESH)] a 
+LEFT JOIN [IDI_Clean_$(REFRESH)].[data].[personal_detail] pd
+	ON a.snz_uid = pd.snz_uid
+AND pd.snz_birth_date_proxy <= EOMONTH(a.from_date)
+WHERE business_area_type = 'CNP'
+GROUP BY a.snz_uid,pd.snz_birth_year_nbr, snz_sex_gender_code;
+GO
+
+
+/*** Step 2: identify people who have a care-experienced parent ***/
  -- Searching through personal details is **REALLY** slow, so we keep this as a table in order to create an index. We take the data we want, and index it to speed up the join. 
  -- This and the next step take about 15 minutes to run.
-DROP TABLE IF EXISTS #parent_index;
+DROP TABLE IF EXISTS [$(PROJECT_DB)].[$(PROJECT_SCHEMA)].[parent_index];
 
 SELECT pd.snz_uid
 	,pd.snz_birth_year_nbr
@@ -52,42 +82,19 @@ SELECT pd.snz_uid
 	,pd.snz_sex_gender_code
 	,pd.snz_parent1_uid
 	,pd.snz_parent2_uid
-INTO #parent_index
-FROM IDI_Clean_202506.[data].personal_detail pd
-WHERE snz_parent1_uid IS NOT NULL
-OR snz_parent2_uid IS NOT NULL
+INTO [$(PROJECT_DB)].[$(PROJECT_SCHEMA)].[parent_index]
+FROM [IDI_Clean_$(REFRESH)].[data].[personal_detail] pd
+WHERE pd.snz_birth_date_proxy < GETDATE();
 
-CREATE NONCLUSTERED INDEX parental_unit_1 ON #parent_index (snz_parent1_uid);
-CREATE NONCLUSTERED INDEX parental_unit_2 ON #parent_index (snz_parent2_uid);
+CREATE NONCLUSTERED INDEX parental_unit_1 ON [$(PROJECT_DB)].[$(PROJECT_SCHEMA)].[parent_index] (snz_parent1_uid);
+CREATE NONCLUSTERED INDEX parental_unit_2 ON [$(PROJECT_DB)].[$(PROJECT_SCHEMA)].[parent_index] (snz_parent2_uid);
 GO
 
-/* Output table */
-
-DROP TABLE IF EXISTS [SIA_Sandpit].[DL-MAA2023-46].[cohort_CEP_202506]
+-- Take our list of people with care experience and identify anyone who has them as a parent
+DROP TABLE IF EXISTS [$(PROJECT_DB)].[$(PROJECT_SCHEMA)].[cohort_CEP_$(REFRESH)];
 GO 
 
-WITH care_experienced AS (
 
-	SELECT e.snz_uid
-		, MIN(e.cyf_ple_event_from_date_wid_date) AS first_placement_date
-		, snz_birth_year_nbr
-		, snz_sex_gender_code
-	FROM IDI_Clean_202506.cyf_clean.cyf_placements_event e
-	LEFT JOIN IDI_Clean_202506.cyf_clean.cyf_placements_details d
-		ON e.snz_composite_event_uid = d.snz_composite_event_uid
-	LEFT JOIN IDI_Clean_202506.[data].personal_detail pd
-		ON e.snz_uid = pd.snz_uid
-	WHERE d.cyf_pld_placement_type_code IN ( --'RESCJP','RESNON','RESYJ','RMNDHM' -- YJ codes
-			'CFSS', 'CYP', 'IWI', 'PSS', 'WHA', 'FAM','WCP', 'BRD', 'SGHP' -- foster care
-			,'RESCP', 'RESIDCR', 'RESMHA'	-- respite care
-			,'INDEP', 'YOOC', 'YSFHCD', 'YSFHSA', 'AKCOMMRESISVC', 'KAAHUIWHETUU' -- other care
-			,'REMHM','RETHM' -- home placements (CEOT has custody, but child remains with family. I understand this enables quick uplift (as legal custody orders already in place) and is used to help progress family reunification
-		)
-	AND pd.snz_birth_date_proxy <= EOMONTH(e.cyf_ple_event_from_date_wid_date)
-	GROUP BY e.snz_uid,pd.snz_birth_year_nbr, snz_sex_gender_code
-	
-)
--- Take our list of people with care experience and identify anyone who has them as a parent
 SELECT DISTINCT pd.snz_uid
 		, pd.snz_birth_year_nbr
 		, pd.snz_birth_date_proxy as cohort_start
@@ -95,13 +102,18 @@ SELECT DISTINCT pd.snz_uid
 		, pd.snz_sex_gender_code
 		, pd.snz_parent1_uid
 		, pd.snz_parent2_uid
-		, IIF(COALESCE(ce1.first_placement_date,'9999-12-31')<COALESCE(ce2.first_placement_date,'9999-12-31'),ce1.first_placement_date,ce2.first_placement_date) AS parent_first_in_care
-INTO [SIA_Sandpit].[DL-MAA2023-46].[cohort_CEP_202506]
-FROM #parent_index AS pd
-LEFT JOIN [DL-MAA2023-46].[care_experienced] AS ce1
+		, IIF(COALESCE(ce1.first_placement_date,'9999-01-01')<COALESCE(ce2.first_placement_date,'9999-01-01'),ce1.first_placement_date,ce2.first_placement_date) AS parent_first_in_care
+INTO [$(PROJECT_DB)].[$(PROJECT_SCHEMA)].[cohort_CEP_$(REFRESH)]
+FROM [$(PROJECT_DB)].[$(PROJECT_SCHEMA)].[parent_index] pd
+LEFT JOIN [$(PROJECT_SCHEMA)].[care_experienced] ce1 
 	ON pd.snz_parent1_uid = ce1.snz_uid
-LEFT JOIN [DL-MAA2023-46].[care_experienced] AS ce2
+LEFT JOIN [$(PROJECT_SCHEMA)].[care_experienced] ce2 
 	ON pd.snz_parent2_uid = ce2.snz_uid
 WHERE (ce1.snz_uid IS NOT NULL OR ce2.snz_uid IS NOT NULL)
 	AND pd.snz_birth_year_nbr >= 1990  -- this is the childs birth year. Using 1990 as a floor to limit processing time (set age restrictions during summarisation)
 
+DROP TABLE IF EXISTS [$(PROJECT_DB)].[$(PROJECT_SCHEMA)].[parent_index]
+DROP VIEW IF EXISTS [$(PROJECT_SCHEMA)].[care_experienced]
+
+-- Compression
+EXEC [IDI_UserCode].[$(PROJECT_SCHEMA)].[compress_table_$(PROJECT_DB)] @table = '[$(PROJECT_DB)].[$(PROJECT_SCHEMA)].[cohort_CEP_$(REFRESH)]'

@@ -4,10 +4,10 @@ Author: Charlotte Rose
 Peer Review: 
 
 Inputs & Dependencies:
-- [SIA_Sandpit].[DL-MAA2023-46].[EET_spells_202506] -- TO BE REPLACED WITH CODE MODULE
+- [$(PROJECT_DB)].[$(PROJECT_SCHEMA)].[EET_spells_$(REFRESH)] -- TO BE REPLACED WITH CODE MODULE
 
 Outputs:
-- [SIA_Sandpit].[DL-MAA2023-46].[defn_neet_spells_202506]
+- [$(PROJECT_DB)].[$(PROJECT_SCHEMA)].[defn_neet_spells_$(REFRESH)]
 
 
 Description:
@@ -32,23 +32,30 @@ Notes:
 1) Maximum end date or 'current' is 2024-12-31. This is because it is the maximum date for MoE enrolment data (until the October refresh)
 
 Parameters & Present values:
-  Current refresh = 202506
+  Current refresh = $(REFRESH)
   Prefix = defn_
-  Project schema = [DL-MAA2023-46]
+  Project schema = [$(PROJECT_SCHEMA)]
  
 Issues:
 1) 
  
 History (reverse order):
+2025-11-06 SA cap spell ends with max_dates
 2025-08-25: DY change to bring in bookends
 
 
 **************************************************************************************************/
 
+-- :SETVAR PROJECT_DB "SIA_Sandpit"
+-- :SETVAR PROJECT_SCHEMA "DL-MAA2026-04"
+-- :SETVAR REFRESH "202603"
+
 
 DROP TABLE IF EXISTS #bookended_EET;
 GO
 
+-------------------------------------------------------------------------------
+-- add bookend
 
 WITH prep AS (
 	SELECT DISTINCT snz_uid
@@ -57,69 +64,76 @@ WITH prep AS (
 		,DATEADD(YEAR,15,dob) AS END_DATE
 		,'BKD' AS spell_type
 		,NULL AS entity
-	FROM [SIA_Sandpit].[DL-MAA2023-46].[EET_spells_202506]),
+		FROM [IDI_Community].[emp_eet_flexible].[eet_flexible_$(REFRESH)]
+),
 prec AS (
-	SELECT * FROM [SIA_Sandpit].[DL-MAA2023-46].[EET_spells_202506]
+	SELECT * FROM [IDI_Community].[emp_eet_flexible].[eet_flexible_$(REFRESH)]
 	UNION
-	SELECT * FROM prep)
+	SELECT * FROM prep
+)
 SELECT *
 INTO #bookended_EET
 FROM prec
+
+-------------------------------------------------------------------------------
+-- merge EET spells
 
 DROP TABLE IF EXISTS #EET_linked;
 GO
 
 WITH start_dates AS (
-			SELECT snz_uid
-					,dob
-					,[start_date]
-			FROM #bookended_EET a
-			WHERE NOT EXISTS (SELECT 1 
-								FROM #bookended_EET  b 
-								WHERE a.snz_uid = b.snz_uid 
-									AND DATEADD(DAY, -1, a.start_date) <= b.end_date
-									AND a.[start_date] > b.[start_date] 
-									)
-			),
+	SELECT snz_uid
+		,dob
+		,[start_date]
+	FROM #bookended_EET a
+	WHERE NOT EXISTS (
+		SELECT 1 
+		FROM #bookended_EET  b 
+		WHERE a.snz_uid = b.snz_uid 
+		AND DATEADD(DAY, -1, a.start_date) <= b.end_date
+		AND a.[start_date] > b.[start_date] 
+	)
+),
 end_dates AS (
-			SELECT snz_uid
-					,dob
-					,end_date
-			FROM #bookended_EET a
-			WHERE NOT EXISTS (SELECT 1 
-								FROM #bookended_EET b 
-								WHERE a.snz_uid = b.snz_uid 
-									AND DATEADD(DAY, 1, a.end_date) >= b.start_date
-									AND a.[end_date] < b.[end_date]
-									)
-			)
+	SELECT snz_uid
+		,dob
+		,end_date
+	FROM #bookended_EET a
+	WHERE NOT EXISTS (
+		SELECT 1 
+		FROM #bookended_EET b 
+		WHERE a.snz_uid = b.snz_uid 
+		AND DATEADD(DAY, 1, a.end_date) >= b.start_date
+		AND a.[end_date] < b.[end_date]
+	)
+)
 
 SELECT a.snz_uid
-		,a.dob
-		,a.[start_date] AS [linked_start]
-		,MIN(b.[end_date]) AS [linked_end]
+	,a.dob
+	,a.[start_date] AS [linked_start]
+	,MIN(b.[end_date]) AS [linked_end]
 INTO #EET_linked
 FROM start_dates a
 LEFT JOIN end_dates b
 ON a.snz_uid = b.snz_uid
-	AND a.[start_date] <=b.end_date
+AND a.[start_date] <=b.end_date
 GROUP BY a.snz_uid,a.dob,a.start_date;
 
---Create NEET spells 
+-------------------------------------------------------------------------------
+-- Invert EET to create NEET spells 
 
-DROP TABLE IF EXISTS [SIA_Sandpit].[DL-MAA2023-46].[defn_neet_spells_202506]
+DROP TABLE IF EXISTS [$(PROJECT_DB)].[$(PROJECT_SCHEMA)].[defn_neet_spells_$(REFRESH)]
 
 SELECT a.snz_uid
 	,a.dob
 	,DATEADD(DAY,1,a.linked_end) AS NEET_start_date
 	,DATEADD(DAY,-1,MIN(b.linked_start)) AS NEET_end_date
 	,DATEDIFF(DAY,DATEADD(DAY,1,a.linked_end),DATEADD(DAY,-1,MIN(b.linked_start))) as NEET_length
-INTO [SIA_Sandpit].[DL-MAA2023-46].[defn_neet_spells_202506]
+INTO [$(PROJECT_DB)].[$(PROJECT_SCHEMA)].[defn_neet_spells_$(REFRESH)]
 FROM #EET_linked AS a
-	INNER JOIN #EET_linked AS b
+INNER JOIN #EET_linked AS b
 ON a.snz_uid = b.snz_uid
-	AND a.linked_end <= DATEADD(DAY,-2,b.linked_start) 
-WHERE DATEDIFF(MONTH,a.dob,'2025-01-01') / 12 < 25 -- cutting off at 25 years
+AND a.linked_end <= DATEADD(DAY,-2,b.linked_start) 
 GROUP BY a.snz_uid,a.dob, a.linked_end;
 
 ---------------------------------------------------------------------
@@ -129,5 +143,9 @@ GROUP BY a.snz_uid,a.dob, a.linked_end;
 DROP TABLE IF EXISTS #bookended_EET
 DROP TABLE IF EXISTS #EET_linked
 
-CREATE NONCLUSTERED INDEX i_uid ON [SIA_Sandpit].[DL-MAA2023-46].[defn_neet_spells_202506] (snz_uid)
+-- Compression
+EXEC [IDI_UserCode].[$(PROJECT_SCHEMA)].[compress_table_$(PROJECT_DB)] @table = '[$(PROJECT_DB)].[$(PROJECT_SCHEMA)].[defn_neet_spells_$(REFRESH)]'
+GO
+
+CREATE NONCLUSTERED INDEX i_uid ON [$(PROJECT_DB)].[$(PROJECT_SCHEMA)].[defn_neet_spells_$(REFRESH)] (snz_uid)
 GO

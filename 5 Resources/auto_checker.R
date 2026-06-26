@@ -46,8 +46,7 @@
 ## User parameters -------------------------------------------------------- ----
 
 # folder containing files for submission
-folder_path <- "/nas/DataLab/MAA/MAA2023-46/projects/Cohorts pipeline/4 For submission"
-      
+folder_path <- "/mnt/DataLab/MAA/MAA2026-04/Cohorts pipeline - matching/4 For submission"
 
 column_types <- c(
   "conf_count_all_people" = 3,

@@ -4,132 +4,173 @@ Author: Charlotte Rose
 Peer review: Simon Anastasiadis
 
 Inputs & Dependencies:
-- [IDI_Community].[inc_ise_main_benefit].[ise_main_benefit_202506]
-- [IDI_Clean_202506].[data].[person_relationship]
-- [IDI_Clean_202506].[data].[personal_detail]
-- [IDI_Clean_202506].[data].[snz_res_pop]
+- [IDI_Community].[inc_ise_main_benefit].[ise_main_benefit_$(REFRESH)]
+- [IDI_Clean].[data].[person_relationship]
+- [IDI_Clean].[data].[personal_detail]
+- [IDI_Clean].[data].[snz_res_pop]
  
 Outputs:
-- [IDI_Sandpit].[DL-MAA2023-46].[defn_parent_benefit_duration_202506]
+- [$(PROJECT_DB)].[$(PROJECT_SCHEMA)].[defn_parent_benefit_duration_$(REFRESH)]
 
 Description:
 Creates a table with child-parent pairs and the % of the childs life that parent was on a main benefit
 
 Intended purpose:
-For use in ACE score calculation
+For use in ACE score calculation. This is a dependency for generalised ACE scores.
 
 Notes:
 1) This is a lifetime measure, not a spell measure
 	So joining by a date range 
-
+2) Significant revision to code April 2026. Swap to using spells when a child is recorded
+	as being supported by a benefit. Merging across all adults as a single child may have multiple
+	caregivers.
 
 Parameters & Present values:
-  Current refresh = 202506
-  Prefix = defn_
-  Project schema = [DL-MAA2023-46]
+  Current refresh = $(REFRESH)
+  Project schema = $(PROJECT_SCHEMA)
  
 Issues: 
 
 History (reverse order):
+2026-04-23 SA new version based on MSD_child table
+2026-04-23 SA bug fixes - denominator too large
+2026-04-20 SA Performance improvements 3 hrs >> 5 minutes
 2025-09-11 SA review and QA
 2024-10-22 - CR 
 **************************************************************************************************/
 
+--:SETVAR PROJECT_DB "SIA_Sandpit"
+--:SETVAR PROJECT_SCHEMA "DL-MAA2026-04"
+--:SETVAR REFRESH "202603"
+
+-------------------------------------------------------------------------------
+-- child and parent benefit spells
+
+DROP TABLE IF EXISTS #parent_and_child_benefit
+GO
+
+SELECT c.[snz_uid] AS parent_snz_uid
+    ,[child_snz_uid]
+    ,[msd_chld_child_from_date]
+    ,[msd_chld_child_to_date]
+    ,[payment_start]
+    ,[payment_end]
+	,IIF([msd_chld_child_from_date] < [payment_start], [payment_start], [msd_chld_child_from_date]) AS trim_start
+	,IIF([msd_chld_child_to_date] < [payment_end], [msd_chld_child_to_date], [payment_end]) AS trim_end
+INTO #parent_and_child_benefit
+FROM [IDI_Clean_$(REFRESH)].[msd_clean].[msd_child] AS c
+INNER JOIN [IDI_Community].[inc_ise_main_benefit].[ise_main_benefit_$(REFRESH)] AS p
+ON c.snz_uid = p.snz_uid
+AND c.msd_chld_child_from_date <= p.payment_start
+AND p.payment_end <= c.msd_chld_child_to_date
+GO
+
+CREATE NONCLUSTERED INDEX i_child ON #parent_and_child_benefit (child_snz_uid)
+GO
+
+-------------------------------------------------------------------------------
+-- Condense spells
+-- (for a single child across all caregivers)
+
 /* Condensed spells */
-DROP TABLE IF EXISTS #mainbenspells;
+DROP TABLE IF EXISTS #condensed_child_spells
+GO
 
 WITH
 /* shared staging filter */
 staging_spells AS (
-	SELECT a.snz_uid as parent
-		, a.payment_start
-		, a.payment_end
-	FROM  [IDI_Community].[inc_ise_main_benefit].[ise_main_benefit_202506] AS a
-
+	SELECT [child_snz_uid]
+		,trim_start AS [start_date]
+		,trim_end AS [end_date]
+	FROM #parent_and_child_benefit
 ),
 /* exclude start dates that are within another spell */
 spell_starts AS (
-	SELECT parent
-		, [payment_start]
+	SELECT [child_snz_uid]
+		, [start_date]
 	FROM staging_spells s1
 	WHERE NOT EXISTS (
 		SELECT 1
 		FROM staging_spells s2
-		WHERE s1.parent = s2.parent
-		AND DATEADD(DAY, -1, s1.[payment_start]) BETWEEN s2.[payment_start] AND s2.[payment_end]
+		WHERE s1.[child_snz_uid] = s2.[child_snz_uid]
+		AND DATEADD(DAY, -1, s1.[start_date]) BETWEEN s2.[start_date] AND s2.[end_date]
 	)
 ),
 /* exclude end dates that are within another spell */
 spell_ends AS (
-	SELECT parent
-		, [payment_end]
+	SELECT [child_snz_uid]
+		, [end_date]
 	FROM staging_spells t1
 	WHERE NOT EXISTS (
 		SELECT 1 
 		FROM staging_spells t2
-		WHERE t2.parent = t1.parent
-		AND  t1.[payment_end] BETWEEN DATEADD(DAY, -1, t2.[payment_start]) AND DATEADD(DAY, -1, t2.[payment_end])
+		WHERE t2.[child_snz_uid] = t1.[child_snz_uid]
+		AND  t1.[end_date] BETWEEN DATEADD(DAY, -1, t2.[start_date]) AND DATEADD(DAY, -1, t2.[end_date])
 	)
 )
 
-SELECT s.parent
-	, s.[payment_start] as [payment_start]
-	, MIN(e.[payment_end]) as [payment_end]
-INTO #mainbenspells
+SELECT s.[child_snz_uid]
+	, s.[start_date] as [start_date]
+	, MIN(e.[end_date]) as [end_date]
+INTO #condensed_child_spells
 FROM spell_starts AS s
 INNER JOIN spell_ends AS e
-	ON s.parent = e.parent
-	AND s.[payment_start] <= e.[payment_end]
-GROUP BY s.parent
-	, s.[payment_start]
+	ON s.[child_snz_uid] = e.[child_snz_uid]
+	AND s.[start_date] <= e.[end_date]
+GROUP BY s.[child_snz_uid]
+	, s.[start_date]
 GO
 
---------------------------------------------------------------------------------------------
--- Output
-
-DROP TABLE IF EXISTS [IDI_Sandpit].[DL-MAA2023-46].[defn_parent_benefit_duration_202506]
+CREATE NONCLUSTERED INDEX i_child ON #condensed_child_spells (child_snz_uid)
 GO
 
-WITH join_w_child AS (
+-------------------------------------------------------------------------------
+-- Calculate % days on benefit
 
-	SELECT b.parent
-		, p.snz_uid AS child
+DROP TABLE IF EXISTS [$(PROJECT_DB)].[$(PROJECT_SCHEMA)].[defn_parent_benefit_duration_$(REFRESH)]
+GO
+
+WITH trim_dates AS (
+
+	SELECT c.child_snz_uid AS snz_uid
 		, p.snz_birth_date_proxy
-		, b.payment_start
-		, b.payment_end
-		, IIF(b.payment_start < p.snz_birth_date_proxy, p.snz_birth_date_proxy, b.payment_start) AS trim_start -- latest start date
-		, IIF(b.payment_end < DATEADD(YEAR,17,p.snz_birth_date_proxy), b.payment_end, DATEADD(YEAR,17,p.snz_birth_date_proxy)) AS trim_end -- eariest end date
-	FROM #mainbenspells AS b
-	INNER JOIN [IDI_Clean_202506].[data].[person_relationship] AS r
-		ON b.parent = r.snz_uid
-	INNER JOIN [IDI_Clean_202506].[data].[personal_detail] AS p
-		ON r.snz_associated_uid = p.snz_uid
-		AND r.prl_relationship_type_code = 'CH'
-		-- payment range overlaps with child age 0-17 range
-		AND p.snz_birth_date_proxy < b.payment_end
-		AND b.payment_start < DATEADD(YEAR,17,p.snz_birth_date_proxy)
-		AND b.payment_start <= b.payment_end
+		, DATEADD(YEAR,18,p.snz_birth_date_proxy) AS birthday18_proxy
+		, c.[start_date]
+		, c.[end_date]
+		, IIF(c.[start_date] < p.snz_birth_date_proxy, p.snz_birth_date_proxy, c.[start_date]) AS trim_start -- latest start date
+		, IIF(c.[end_date] < DATEADD(YEAR,18,p.snz_birth_date_proxy), c.[end_date], DATEADD(YEAR,18,p.snz_birth_date_proxy)) AS trim_end -- eariest end date
+	FROM #condensed_child_spells AS c
+	INNER JOIN [IDI_Clean_$(REFRESH)].[data].[personal_detail] AS p
+		ON c.child_snz_uid = p.snz_uid
+		-- payment range overlaps with child birth to 18th birthday
+		AND p.snz_birth_date_proxy < c.[end_date]
+		AND c.[start_date] < DATEADD(YEAR,18,p.snz_birth_date_proxy)
+		AND c.[start_date] <= c.[end_date]
 
 ),
 calculation AS (
 
-	SELECT parent
-		, child
+	SELECT snz_uid
+		-- sum as want cumulative over all benefit spells 
 		, SUM(DATEDIFF(DAY, trim_start, trim_end)) AS days_benefit
-		, SUM(DATEDIFF(
-			DAY,
-			snz_birth_date_proxy,
-			IIF(DATEADD(YEAR, 17, snz_birth_date_proxy) < GETDATE(), DATEADD(YEAR, 17, snz_birth_date_proxy), GETDATE())
-		)) AS days_childhood
-	FROM join_w_child
-	GROUP BY parent
-		, child
+		-- max as only want one copy of days from birth to 18th birthday/today
+		, DATEDIFF(DAY, snz_birth_date_proxy, IIF(birthday18_proxy < GETDATE(), birthday18_proxy, GETDATE())) AS days_childhood -- crude max_date
+	FROM trim_dates
+	GROUP BY snz_uid
 		, snz_birth_date_proxy
+		, birthday18_proxy
 
 )
-SELECT child
-	, parent
-	, ROUND(100.0 * days_benefit / days_childhood, 1) AS perc_childhood_on_ben
-INTO [IDI_Sandpit].[DL-MAA2023-46].[defn_parent_benefit_duration_202506]
+SELECT snz_uid
+	, IIF(days_benefit > days_childhood, 100.0,  ROUND(100.0 * days_benefit / days_childhood, 1)) AS perc_childhood_on_ben
+INTO [$(PROJECT_DB)].[$(PROJECT_SCHEMA)].[defn_parent_benefit_duration_$(REFRESH)]
 FROM calculation
 GO
+
+/* Compress final table to save space */
+EXEC [IDI_UserCode].[$(PROJECT_SCHEMA)].[compress_table_$(PROJECT_DB)] @table = '[$(PROJECT_DB)].[$(PROJECT_SCHEMA)].[defn_parent_benefit_duration_$(REFRESH)]'
+
+/* Add index */
+CREATE NONCLUSTERED INDEX my_index_name ON [$(PROJECT_DB)].[$(PROJECT_SCHEMA)].[defn_parent_benefit_duration_$(REFRESH)] (snz_uid);
+GO
+

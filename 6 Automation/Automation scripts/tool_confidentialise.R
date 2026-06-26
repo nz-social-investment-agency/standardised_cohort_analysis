@@ -5,7 +5,7 @@
 
 ## User parameters -------------------------------------------------------- ----
 
-settings_file = glue::glue("{BASE_FOLDER}/2 Analysis/{COHORT}/Execution/in_progress_settings.RDS")
+settings_file = glue::glue("{BASE_FOLDER}/2 Analysis/{COHORT}/{REFRESH}/Execution/in_progress_settings.RDS")
 
 ## Load settings ---------------------------------------------------------- ----
 
@@ -22,7 +22,7 @@ for(setting in required_settings){
 # read
 tbl = read.csv(raw_summary_file)
 # round
-tbl = IDIr::run_confidential(control_file_path, confidentialise_sheet, tbl)
+tbl = ADAPT::run_confidential(control_file_path, confidentialise_sheet, tbl)
 # write
 write.csv(tbl, conf_summary_file, row.names = FALSE)
 

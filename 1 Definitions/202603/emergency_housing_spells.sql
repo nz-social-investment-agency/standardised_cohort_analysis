@@ -26,7 +26,7 @@ Inputs & Dependencies:
 - [IDI_Clean].[msd_clean].[msd_third_tier_expenditure]
 
 Outputs:
-- [IDI_UserCode].[DL-MAA2023-46].[defn_emergency_housing_202506]
+- [IDI_UserCode].[$(PROJECT_SCHEMA)].[defn_emergency_housing_$(REFRESH)]
 
 Key rules:
 1. 'IDI Adhoc Payments to Beneficiaries (Third Tier Expenditure)' table is located in [msd_clean].[msd_third_tier_expenditure] table in the [IDI_Clean] database. 
@@ -51,7 +51,7 @@ stay for the night. If an individual meets the criteria for an emergency housing
 - enough duration has passed since the last time recipient has been in an emergency housing and there's a 
   new reason for the recipient to need emergency housing
 
-After 7 nights, the recipient needs to pay 25% of their income for the accommodation costs. If they have a partner, 
+After 7 nights, the recipient needs to pay 25% of their income for the accommodation costs. If they have a partner, f
 they will also need to pay 25% of their income. Income is any money coming in for the recipient, e.g., main benefit, Family Tax Credit.
 
 From [Ministry of Housing and Urban Development's (HUD's) Quarterly Reports]( https://hud.govt.nz/asserts/News-and-Resources/Statistics-and-Research/Public-housing-reports/Quarterly-reports/Public-housing-Quarterly-Report-March-2021.pdf )
@@ -69,9 +69,9 @@ References & Contacts:
 
 
 Parameters & Present values:
-  Current refresh = 202506
+  Current refresh = $(REFRESH)
   Prefix = defn_
-  Project schema = [DL-MAA2023-46]
+  Project schema = [$(PROJECT_SCHEMA)]
 
 ---------------------------------------------------------------------------------------------------------------------------
 Column name                     Description
@@ -90,16 +90,20 @@ History (reverse order):
 12 Oct 2021                Original code by Craig Wright
 ***************************************************************************************************************************/
 
+-- :SETVAR PROJECT_DB "SIA_Sandpit"
+-- :SETVAR PROJECT_SCHEMA "DL-MAA2026-04"
+-- :SETVAR REFRESH "202603"
+
 /* Assign the target database to which all the components need to be created in. */
 USE IDI_UserCode
 GO
 
 /* Delete the database object if it already exists */
-DROP VIEW IF EXISTS [DL-MAA2023-46].[defn_emergency_housing_202506]
+DROP VIEW IF EXISTS [$(PROJECT_SCHEMA)].[defn_emergency_housing_$(REFRESH)]
 GO
 
 /* Create the database object from the temporary view by merging the any close consecutive applications together */
-CREATE VIEW [DL-MAA2023-46].[defn_emergency_housing_202506] AS
+CREATE VIEW [$(PROJECT_SCHEMA)].[defn_emergency_housing_$(REFRESH)] AS
 	/* Trim out the duplicate rows from the MSD data after filtering for people that have applied for emergency housing */ 
 	WITH 
 	emergency_housing AS (
@@ -107,7 +111,7 @@ CREATE VIEW [DL-MAA2023-46].[defn_emergency_housing_202506] AS
 			,[snz_msd_uid]
 			,[msd_tte_app_date] AS [start_date]
 			,dateadd(day, 23, [msd_tte_app_date]) AS [end_date] /* Adds a 23 day threshold between each application so that any consecutive applications made within 23 day thresholds can be joined up together into a single spell. */
-		FROM [IDI_Clean_202506].[msd_clean].[msd_third_tier_expenditure]
+		FROM [IDI_Clean_$(REFRESH)].[msd_clean].[msd_third_tier_expenditure]
 		WHERE [msd_tte_pmt_rsn_type_code] IN ('855') /* Emergency housing code */ 
 		GROUP BY snz_uid, snz_msd_uid, msd_tte_app_date
 	),

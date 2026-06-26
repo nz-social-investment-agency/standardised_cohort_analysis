@@ -4,9 +4,9 @@ Author: Charlotte Rose
 Peer review: Lexi Xu
 
 Inputs & Dependencies:
-	[IDI_Clean_202506].[dia_clean].[marriages]
-	[IDI_Clean_202506].[dia_clean].[civil_unions]
-	[IDI_Clean_202506].[data].[personal_detail]
+	[IDI_Clean_$(REFRESH)].[dia_clean].[marriages]
+	[IDI_Clean_$(REFRESH)].[dia_clean].[civil_unions]
+	[IDI_Clean_$(REFRESH)].[data].[personal_detail]
 
 
 Description:
@@ -18,7 +18,7 @@ Notes:
 2) There is currently no way of reliably capturing seperations amoung those partners who are not legally married/in a civil union, thus this is not by any means a comprehensive measure of seperation
 
 Parameters & Present values:
-  Current refresh = 202506
+  Current refresh = $(REFRESH)
   Project schema = MAA2023-46
 
 Issues: 
@@ -27,6 +27,10 @@ Issues:
 History (reverse order):
 2025-07-22 CR adapted from PM 
 **************************************************************************************************/
+
+-- :SETVAR PROJECT_DB "SIA_Sandpit"
+-- :SETVAR PROJECT_SCHEMA "DL-MAA2026-04"
+-- :SETVAR REFRESH "202603"
 
 USE [IDI_UserCode]
 GO
@@ -38,10 +42,10 @@ SET QUOTED_IDENTIFIER ON
 GO
 
 
-DROP VIEW IF EXISTS [DL-MAA2023-46].[defn_separation_202506]
+DROP VIEW IF EXISTS [$(PROJECT_SCHEMA)].[defn_separation_$(REFRESH)]
 GO
 
-CREATE VIEW [DL-MAA2023-46].[defn_separation_202506] AS
+CREATE VIEW [$(PROJECT_SCHEMA)].[defn_separation_$(REFRESH)] AS
 WITH
 marriage AS (
 	SELECT DISTINCT [partnr1_snz_uid]
@@ -52,10 +56,10 @@ marriage AS (
 		  ,[dia_mar_disolv_order_date]
 		  ,DATEFROMPARTS(b.[snz_deceased_year_nbr], b.[snz_deceased_month_nbr], 28) AS [partnr1_deceased_date]
 		  ,DATEFROMPARTS(c.[snz_deceased_year_nbr], c.[snz_deceased_month_nbr], 28) AS [partnr2_deceased_date]
-	FROM [IDI_Clean_202506].[dia_clean].[marriages] a
-	INNER JOIN [IDI_Clean_202506].[data].[personal_detail] b
+	FROM [IDI_Clean_$(REFRESH)].[dia_clean].[marriages] a
+	INNER JOIN [IDI_Clean_$(REFRESH)].[data].[personal_detail] b
 	ON a.[partnr1_snz_uid] = b.snz_uid
-	INNER JOIN [IDI_Clean_202506].[data].[personal_detail] c
+	INNER JOIN [IDI_Clean_$(REFRESH)].[data].[personal_detail] c
 	ON a.[partnr2_snz_uid] = c.snz_uid
 	WHERE [dia_mar_marriage_date] IS NOT NULL
 	AND [partnr1_snz_uid] <> [partnr2_snz_uid]
@@ -72,10 +76,10 @@ civil_union AS (
 		  ,[dia_civ_disolv_order_date]
 		  ,DATEFROMPARTS(b.[snz_deceased_year_nbr], b.[snz_deceased_month_nbr], 28) AS [partnr1_deceased_date]
 		  ,DATEFROMPARTS(c.[snz_deceased_year_nbr], c.[snz_deceased_month_nbr], 28) AS [partnr2_deceased_date]
-	FROM [IDI_Clean_202506].[dia_clean].[civil_unions] a
-	INNER JOIN [IDI_Clean_202506].[data].[personal_detail] b
+	FROM [IDI_Clean_$(REFRESH)].[dia_clean].[civil_unions] a
+	INNER JOIN [IDI_Clean_$(REFRESH)].[data].[personal_detail] b
 	ON a.[partnr1_snz_uid] = b.snz_uid
-	INNER JOIN [IDI_Clean_202506].[data].[personal_detail] c
+	INNER JOIN [IDI_Clean_$(REFRESH)].[data].[personal_detail] c
 	ON a.[partnr2_snz_uid] = c.snz_uid
 	WHERE [dia_civ_civil_union_date] IS NOT NULL
 	AND [partnr1_snz_uid] <> [partnr2_snz_uid]

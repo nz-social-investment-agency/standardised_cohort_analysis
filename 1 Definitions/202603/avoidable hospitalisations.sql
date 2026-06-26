@@ -77,7 +77,7 @@ It should also be noted that a child who has several ASH/PAH events is not neces
 
 ### Import lookup tables:
 1. Expand Databases in Object Explorer. 
-2. Right click on SIA_Sandpit > Tasks > Import Flat File...
+2. Right click on $(PROJECT_DB) > Tasks > Import Flat File...
 3. Find location of lookup table to be imported.
 4. Provide a new table name (must be identical to names above). Choose the table schema (project).
 5. Modify columns
@@ -182,7 +182,11 @@ The business key for this spell table is one row per snz_uid, moh_dia_event_id_n
 ## Code
 ***********************************************************************************/
 
-USE SIA_Sandpit
+-- :SETVAR PROJECT_DB "SIA_Sandpit"
+-- :SETVAR PROJECT_SCHEMA "DL-MAA2026-04"
+-- :SETVAR REFRESH "202603"
+
+USE $(PROJECT_DB)
 GO
 
 DROP TABLE IF EXISTS #ASH_PAH_1 
@@ -209,9 +213,9 @@ SELECT b.[snz_uid]
 	 ,b.[moh_evt_adm_src_code]
 	 ,b.[moh_evt_facility_xfer_from_code]
 INTO #ASH_PAH_1	 
-FROM [IDI_Clean_202506].[moh_clean].[pub_fund_hosp_discharges_diag] a
+FROM [IDI_Clean_$(REFRESH)].[moh_clean].[pub_fund_hosp_discharges_diag] a
 /*Join to discharges_events to determine snz_uid and age of each individual.*/
-	INNER JOIN [IDI_Clean_202506].[moh_clean].[pub_fund_hosp_discharges_event] as b
+	INNER JOIN [IDI_Clean_$(REFRESH)].[moh_clean].[pub_fund_hosp_discharges_event] as b
 		ON a.[moh_dia_event_id_nbr] = b.[moh_evt_event_id_nbr]
 WHERE a.[moh_dia_submitted_system_code] = a.[moh_dia_clinical_sys_code] /* higher accuracy when systems match */
 /* diagnosis in ICD10 */
@@ -338,6 +342,7 @@ GO
 --CREATE CLUSTERED INDEX my_index_name ON #ASH_PAH ([snz_uid])
 /* Compress final table to save space */
 --ALTER TABLE #ASH_PAH REBUILD PARTITION = ALL WITH (DATA_COMPRESSION = PAGE)
+
 /*For PAH we need to do a bit more processing to add injuries and to deal with transfers*/
 /*Start by isolating the PAH events we have so far*/
 DROP TABLE IF EXISTS #PAH_only
@@ -374,8 +379,8 @@ SELECT b.[snz_uid]
 	,b.[moh_evt_adm_src_code]
 	,b.[moh_evt_facility_xfer_from_code]
 INTO #ASH_PAH_1_inj
-FROM [IDI_Clean_202506].[moh_clean].[pub_fund_hosp_discharges_diag] a
-	INNER JOIN [IDI_Clean_202506].[moh_clean].[pub_fund_hosp_discharges_event] as b
+FROM [IDI_Clean_$(REFRESH)].[moh_clean].[pub_fund_hosp_discharges_diag] a
+	INNER JOIN [IDI_Clean_$(REFRESH)].[moh_clean].[pub_fund_hosp_discharges_event] as b
 		ON a.[moh_dia_event_id_nbr] = b.[moh_evt_event_id_nbr]
 WHERE a.[moh_dia_submitted_system_code] = a.[moh_dia_clinical_sys_code] /* higher accuracy when systems match */
 /* diagnosis in ICD10 */
@@ -586,10 +591,10 @@ FROM #ASH_PAH
 WHERE source_type <> 'child_PAH'
 GO
 
-DROP TABLE IF EXISTS [SIA_Sandpit].[DL-MAA2023-46].[defn_ASH_PAH_202506]
+DROP TABLE IF EXISTS [$(PROJECT_DB)].[$(PROJECT_SCHEMA)].[defn_ASH_PAH_$(REFRESH)]
 GO
  
-CREATE TABLE [SIA_Sandpit].[DL-MAA2023-46].[defn_ASH_PAH_202506] (
+CREATE TABLE [$(PROJECT_DB)].[$(PROJECT_SCHEMA)].[defn_ASH_PAH_$(REFRESH)] (
 	snz_uid int NOT NULL,
 	moh_dia_event_id_nbr int NOT NULL,
 	[start_date] date NULL,
@@ -610,7 +615,11 @@ CREATE TABLE [SIA_Sandpit].[DL-MAA2023-46].[defn_ASH_PAH_202506] (
 )
 GO
 
-INSERT INTO [SIA_Sandpit].[DL-MAA2023-46].[defn_ASH_PAH_202506] (
+-- compress table at creation before filling
+ALTER TABLE [$(PROJECT_DB)].[$(PROJECT_SCHEMA)].[defn_ASH_PAH_$(REFRESH)] REBUILD PARTITION = ALL WITH (DATA_COMPRESSION = PAGE)
+GO
+
+INSERT INTO [$(PROJECT_DB)].[$(PROJECT_SCHEMA)].[defn_ASH_PAH_$(REFRESH)] (
 	snz_uid,
 	moh_dia_event_id_nbr,
 	[start_date],
@@ -634,5 +643,5 @@ FROM #final_ASH_PAH
 GO
 
 /* Add index */
-CREATE NONCLUSTERED INDEX my_index_name ON [SIA_Sandpit].[DL-MAA2023-46].[defn_ASH_PAH_202506] (snz_uid)
+CREATE NONCLUSTERED INDEX my_index_name ON [$(PROJECT_DB)].[$(PROJECT_SCHEMA)].[defn_ASH_PAH_$(REFRESH)] (snz_uid)
 GO

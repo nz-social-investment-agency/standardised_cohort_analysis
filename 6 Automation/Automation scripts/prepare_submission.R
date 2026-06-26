@@ -5,7 +5,7 @@
 
 ## User parameters -------------------------------------------------------- ----
 
-settings_file = glue::glue("{BASE_FOLDER}/2 Analysis/{COHORT}/Execution/in_progress_settings.RDS")
+settings_file = glue::glue("{BASE_FOLDER}/2 Analysis/{COHORT}/{REFRESH}/Execution/in_progress_settings.RDS")
 
 req_raw_cols = c(
   "organisation_name",
@@ -72,7 +72,7 @@ for(setting in required_settings){
 ## Load inputs ------------------------------------------------------------ ----
 
 df = read.csv(conf_summary_file)
-
+#df$dim2_code <- as.character(df$dim2_code)
 is_current_state = grepl("current state", phase)
 is_time_series = grepl("time series", phase)
 
@@ -162,8 +162,8 @@ if(is_current_state){
 
 if(is_current_state){
   
-  db_connection = DBI::dbConnect(odbc::odbc(), .connection_string = db_connection_string)
-  remote_client_table = dplyr::tbl(db_connection, IDIr:::sql2id(client_table))
+  db_connection = DBI::dbConnect(odbc::odbc(), .connection_string = db_connection_string, bigint = "numeric")
+  remote_client_table = dplyr::tbl(db_connection, ADAPT:::sql2id(client_table))
   
   # fetch values
   loaded_obs = dplyr::summarise(remote_client_table, num = dplyr::n())
@@ -177,21 +177,31 @@ if(is_current_state){
   noncurrent_nonlinked = dplyr::summarise(noncurrent_nonlinked, num = dplyr::n())
   noncurrent_nonlinked = dplyr::collect(noncurrent_nonlinked)
   
+  nodob_nonlinked = dplyr::filter(remote_client_table, linked_uid != 1, no_dob == 1)
+  nodob_nonlinked = dplyr::summarise(nodob_nonlinked, num = dplyr::n())
+  nodob_nonlinked = dplyr::collect(nodob_nonlinked)
+  
+  nostart_nonlinked = dplyr::filter(remote_client_table, linked_uid != 1, no_start_date == 1)
+  nostart_nonlinked = dplyr::summarise(nostart_nonlinked, num = dplyr::n())
+  nostart_nonlinked = dplyr::collect(nostart_nonlinked)
+  
   DBI::dbDisconnect(db_connection)
   
   # prepare for inclusion
   values = c(
     dplyr::coalesce(loaded_obs$num[1], 0),
     dplyr::coalesce(current_nonlinked$num[1], 0),
-    dplyr::coalesce(noncurrent_nonlinked$num[1], 0)
+    dplyr::coalesce(noncurrent_nonlinked$num[1], 0),
+    dplyr::coalesce(nodob_nonlinked$num[1], 0),
+    dplyr::coalesce(nostart_nonlinked$num[1], 0)
   )
-  conf_values = IDIr::apply_random_rounding(values, seeds = values)
+  conf_values = ADAPT::apply_random_rounding(values, seeds = values)
   conf_values[conf_values < 6] = NA
   
   metadata_df = data.frame(
-    organisation_name = rep(COHORT, 3),
-    period = rep("system", 3),
-    indicator = c("loaded_obs", "current_nonlinked", "noncurrent_nonlinked"),
+    organisation_name = rep(COHORT, length(values)),
+    period = rep("system", length(values)),
+    indicator = c("loaded_obs", "current_nonlinked", "noncurrent_nonlinked", "nodob_nonlinked", "nostart_nonlinked"),
     count_w_indicator = values,
     conf_count_w_indicator = conf_values,
     education_entity = 9999,
