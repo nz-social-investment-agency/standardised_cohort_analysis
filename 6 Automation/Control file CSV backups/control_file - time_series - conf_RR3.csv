@@ -1,0 +1,16 @@
+"COMMAND","grplabel1","group1","grplabel2","group2","grplabel3","group3","label1","label2","count1","sum1","sum2","stddev","entity1","entity2","entity3","entity4","max","entity5","entity6","entity7","entity8"
+"RENAME",,"organisation_name",,"client_status",,"period","indicator","category","count_all_people","count_w_indicator","annualised_total","stddev_ratio","education_entity","enterprise_entity","pbn_entity","primhd_entity","max_date","cohort_education_entity","cohort_enterprise_entity","cohort_pbn_entity","cohort_primhd_entity"
+"DROP",TRUE,,TRUE,,TRUE,,,,,,,,,,,,,,,,
+"MISSING_TO",,,,,,,,,,,,,"9999","9999","9999","9999",,"9999","9999","9999","9999"
+"SEED",,,,,,,,,"seed","seed",,,,,,,,,,,
+"ROUND",,,,,,,,,"RR3","RR3",,,,,,,,,,,
+"SUPPRESS",,,,,,,,,"count1 < 6","count1 < 6","count1 < 20","count1 < 20",,,,,,,,,
+"SUPPRESS",,,,,,,,,,"sum1 < 6","sum1 < 20","sum1 < 20",,,,,,,,,
+"SUPPRESS",,,,,,,,,,"entity1 < 3","entity1 < 3","entity1 < 3",,,,,,,,,
+"SUPPRESS",,,,,,,,,,"entity2 < 3","entity2 < 3","entity2 < 3",,,,,,,,,
+"SUPPRESS",,,,,,,,,,"entity3 < 3","entity3 < 3","entity3 < 3",,,,,,,,,
+"SUPPRESS",,,,,,,,,,"entity4 < 3","entity4 < 3","entity4 < 3",,,,,,,,,
+"SUPPRESS",,,,,,,,,,"entity5 < 3","entity5 < 3","entity5 < 3",,,,,,,,,
+"SUPPRESS",,,,,,,,,,"entity6 < 3","entity6 < 3","entity6 < 3",,,,,,,,,
+"SUPPRESS",,,,,,,,,,"entity7 < 3","entity7 < 3","entity7 < 3",,,,,,,,,
+"SUPPRESS",,,,,,,,,,"entity8 < 3","entity8 < 3","entity8 < 3",,,,,,,,,
