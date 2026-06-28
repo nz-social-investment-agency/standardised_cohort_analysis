@@ -1,0 +1,14 @@
+2026-04-09
+This folder exists as a central location for ease of submitting output to Stats.
+
+The recommended process is:
+> Use the Resources/auto checker.R script to generate output checking tool results
+	for all files in this folder.
+> Move all files in this folder + output checking tool results to _Output checking.
+> Submit an output request to Stats.
+
+Avoid using this folder for storage of results.
+The pipeline only places a copy of results in this folder. The original copy
+is kept in the Analysis/{COHORT}/{REFRESH}/Output folder.
+
+Hence, the contents of this folder can be deleted without notice!
